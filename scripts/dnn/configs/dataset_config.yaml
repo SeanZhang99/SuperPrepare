@@ -1,0 +1,9 @@
+path:
+  root_path: "E:\\SuperHuge\\derivatives"
+  exg_path: "exg"
+  meta_path: "meta\\metadata.pkl"
+  stimuli_path: "stimuli"
+  tmp_path: "tmp"
+
+cross_validation:
+  n_folds: 5
