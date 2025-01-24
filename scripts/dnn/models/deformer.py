@@ -63,9 +63,9 @@ class Deformer(nn.Module):
         num_time = config["dataset"]["window_length"] * config["dataset"]["fs"]
         num_chan = config["dataset"]["num_chan"]
 
-        depth = config["model"]["trans"]["depth"]
+        depth = transformer_config["depth"]
 
-        self.skip_pool = config["model"]["skip_pool"]
+        self.skip_pool = skip_pool
         self.cnn_encoder1 = self.cnn_block(
             in_chan=1,
             out_chan=num_kernel,
