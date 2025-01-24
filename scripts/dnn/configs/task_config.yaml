@@ -1,0 +1,42 @@
+general:
+  window_length:
+    1: 1
+    10: 1
+  fs: 128
+  metadata_fields:
+    - "dataset_id"
+    - "subject_id"
+    - "trial_id"
+    - "signal_length"
+    - "num_channel"
+    - "fs"
+
+directional_focus_decoding:
+  name: directional_focus_decoding
+  type: classification
+  dataset_name: eeg_classify_base_dataset
+  target:
+    binary_leftright: 1
+    binary_frontrear: 0
+    four-class: 0
+    eight-class: 0
+  cross_validation:
+    leave_one_trial_out: 1
+    leave_one_subject_out: 1
+    leave_one_dataset_out: 1
+  metadata_fields:
+    - "label"
+
+speech_reconstrcution:
+  name: speech_reconstruction
+  type: regression
+  dataset_name: eeg_regression_base_dataset
+  target:
+    env: 0
+    mel: 0
+  cross_validation:
+    leave_one_trial_out: 1
+    leave_one_subject_out: 1
+    leave_one_dataset_out: 1
+  metadata_fields:
+    - "as_target"

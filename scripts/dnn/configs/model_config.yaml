@@ -1,0 +1,19 @@
+deformer:
+  batch_size: "auto"
+  enable: 1
+  skip_pool: 0
+  symmetric_qk: 0
+  dropout: 0.3
+  cnn_config:
+    temporal_kernel: 13
+    num_kernels: 64
+  transformer_config:
+    depth: 4
+    chan_num_heads: 32
+    chan_dim_heads: 1024
+    mlp_heads: 32
+  aux_config:
+    aux_hidden_dim: 256
+  post_mlp_config:
+    post_mlp_dim: 256
+  overwrite_optimizer: {}
