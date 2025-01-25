@@ -16,10 +16,19 @@ directional_focus_decoding:
   type: classification
   dataset_name: eeg_classify_base_dataset
   target:
-    binary_leftright: 1
-    binary_frontrear: 0
-    four-class: 0
-    eight-class: 0
+    binary_leftright:
+      enable: 1
+      num_class: 2
+    binary_frontrear:
+      enable: 0
+      num_class: 2
+    four-class:
+      enable: 0
+      num_class: 4
+    eight-class:
+      enable: 0
+      num_class: 8
+
   cross_validation:
     leave_one_trial_out: 1
     leave_one_subject_out: 1
@@ -32,11 +41,13 @@ speech_reconstrcution:
   type: regression
   dataset_name: eeg_regression_base_dataset
   target:
-    env: 0
-    mel: 0
+    env:
+      enable: 0
+    mel:
+      enable: 0
   cross_validation:
     leave_one_trial_out: 1
     leave_one_subject_out: 1
     leave_one_dataset_out: 1
   metadata_fields:
-    - "as_target"
+    - "target_name"

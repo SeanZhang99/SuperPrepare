@@ -14,6 +14,7 @@
 
 import inspect
 from pyexpat import model
+from typing import Iterable
 import torch
 import importlib
 from torch.nn import functional as F
@@ -24,27 +25,32 @@ import pytorch_lightning as pl
 
 class MInterface(pl.LightningModule):
     def __init__(
-        self, model_config: dict, optimizer_config: dict, lr_scheduler_config: dict
+        self,
+        model_config: dict,
+        optimizer_config: dict,
+        lr_scheduler_config: dict,
+        **kwargs,
     ):
         super().__init__()
-        self.model_config = model_config
+        self.model_name = list(model_config.keys())[0]
+        self.model_config = model_config[self.model_name]
         self.optimizer_config = optimizer_config
         self.lr_scheduler_config = lr_scheduler_config
-        self.load_model(**self.model_config)
+        self.load_model(**kwargs)
 
     def load_model(self, **other_args):
-        name = list(self.model_config.keys())[0]
         # Change the `snake_case.py` file name to `CamelCase` class name.
         # Please always name your model file name as `snake_case.py` and
         # class name corresponding `CamelCase`.
-        camel_name = "".join([i.capitalize() for i in name.split("_")])
+        camel_name = "".join([i.capitalize() for i in self.model_name.split("_")])
         try:
             Model = getattr(
-                importlib.import_module("." + name, package=__package__), camel_name
+                importlib.import_module("." + self.model_name, package=__package__),
+                camel_name,
             )
         except:
             raise ValueError(
-                f"Invalid Module File Name or Invalid Class Name {name}.{camel_name}!"
+                f"Invalid Module File Name or Invalid Class Name {self.model_name}.{camel_name}!"
             )
         self.model = self.instancialize(Model, **other_args)
 
@@ -53,11 +59,16 @@ class MInterface(pl.LightningModule):
         from self.hparams dictionary. You can also input any args
         to overwrite the corresponding value in self.hparams.
         """
-        class_args = list(inspect.signature(Model.__init__).parameters.keys())[1:]
-        inkeys = self.hparams.keys()
-        args1 = {}
-        for arg in class_args:
-            if arg in inkeys:
-                args1[arg] = getattr(self.hparams, arg)
-        args1.update(other_args)
-        return Model(**args1)
+
+        def extract_args(source: dict, target: dict, required_keys: Iterable[str]):
+            for key, value in source.items():
+                if key in required_keys:
+                    target[key] = value
+                elif isinstance(value, dict):
+                    extract_args(value, target, required_keys)
+
+        class_args = list(inspect.signature(Model.create_models).parameters.keys())
+        out_args = {}
+        extract_args(self.model_config, out_args, class_args)
+        extract_args(other_args, out_args, class_args)
+        return Model.create_models(**out_args)

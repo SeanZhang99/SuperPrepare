@@ -1,5 +1,6 @@
 # This is the script of EEG-Deformer
 # This is the network script
+from platform import win32_edition
 from threading import local
 from numpy import iterable
 import torch
@@ -9,6 +10,22 @@ from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
 from collections.abc import Iterable
+from pydantic import BaseModel
+from functional.fast_dict_access import FastDictAccess
+
+
+class createDeformerInputConfig(BaseModel):
+    skip_pool: bool
+    symmetric_qk: bool
+    dropout: float
+    cnn_config: dict
+    transformer_config: dict
+    aux_config: dict
+    post_mlp_config: dict
+    fs: int
+    window_length: int
+    num_channel: int
+    num_class: int
 
 
 class Deformer(nn.Module):
@@ -44,28 +61,48 @@ class Deformer(nn.Module):
             ),
         )
 
-    def __init__(
-        self,
+    @staticmethod
+    def create_models(
         *,
-        skip_pool,
-        symmetric_qk,
-        dropput,
-        cnn_config,
-        transformer_config,
-        aux_config,
-        post_mlp_config,
+        skip_pool: bool,
+        symmetric_qk: bool,
+        dropout: float,
+        cnn_config: dict,
+        transformer_config: dict,
+        aux_config: dict,
+        post_mlp_config: dict,
+        fs: int,
+        window_length: int,
+        num_channel: int,
+        num_class: int,
     ):
+        model_config = createDeformerInputConfig(
+            skip_pool=skip_pool,
+            symmetric_qk=symmetric_qk,
+            dropout=dropout,
+            cnn_config=cnn_config,
+            transformer_config=transformer_config,
+            aux_config=aux_config,
+            post_mlp_config=post_mlp_config,
+            fs=fs,
+            window_length=window_length,
+            num_channel=num_channel,
+            num_class=num_class,
+        )
+        return Deformer(model_config=model_config)
+
+    def __init__(self, *, model_config: createDeformerInputConfig):
         super().__init__()
 
-        num_kernel = cnn_config["num_kernels"]
-        temporal_kernel = cnn_config["temporal_kernel"]
+        num_kernel = model_config.cnn_config["num_kernels"]
+        temporal_kernel = model_config.cnn_config["temporal_kernel"]
 
-        num_time = config["dataset"]["window_length"] * config["dataset"]["fs"]
-        num_chan = config["dataset"]["num_chan"]
+        num_time = model_config.fs * model_config.window_length
+        num_chan = model_config.num_channel
 
-        depth = transformer_config["depth"]
+        depth = model_config.transformer_config["depth"]
 
-        self.skip_pool = skip_pool
+        self.skip_pool = model_config.skip_pool
         self.cnn_encoder1 = self.cnn_block(
             in_chan=1,
             out_chan=num_kernel,
@@ -82,7 +119,7 @@ class Deformer(nn.Module):
 
         self.transformer = Transformer(
             dim=dim,
-            config=config,
+            config=model_config,
         )
 
         L = self.get_hidden_size(input_size=dim, num_layer=depth)
@@ -90,11 +127,11 @@ class Deformer(nn.Module):
         out_size = int(num_kernel * L[-1]) + int(num_kernel * depth)
 
         self.mlp_head = nn.Sequential(
-            nn.Linear(out_size, config["model"]["post_mlp"]["post_mlp_dim"]),
+            nn.Linear(out_size, model_config.post_mlp_config["post_mlp_dim"]),
             nn.ELU(),
             nn.Linear(
-                config["model"]["post_mlp"]["post_mlp_dim"],
-                len(config["dataset"]["classlabels"]),
+                model_config.post_mlp_config["post_mlp_dim"],
+                model_config.num_class,
             ),
         )
 
@@ -140,12 +177,12 @@ class FeedForward(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, dim, config, keyword="chan"):
+    def __init__(self, dim, config: createDeformerInputConfig, keyword="chan"):
         super().__init__()
-        heads = config["model"]["trans"][keyword + "_num_heads"]
-        dim_head = config["model"]["trans"][keyword + "_dim_heads"]
-        dropout = config["model"]["dropout"]
-        symmetric_qk = config["model"]["symmetric_qk"]
+        heads = config.transformer_config[f"{keyword}_num_heads"]
+        dim_head = config.transformer_config[f"{keyword}_dim_heads"]
+        dropout = config.dropout
+        symmetric_qk = config.symmetric_qk
         inner_dim = dim_head * heads
         project_out = not (heads == 1 and dim_head == dim)
 
@@ -200,11 +237,11 @@ class Transformer(nn.Module):
     def __init__(
         self,
         dim,
-        config,
+        config: createDeformerInputConfig,
     ):
         super().__init__()
-        depth = config["model"]["trans"]["depth"]
-        skip_pool = config["model"]["skip_pool"]
+        depth = config.transformer_config["depth"]
+        skip_pool = config.skip_pool
         self.chan_attn_layers: Iterable = nn.ModuleList([])
         self.time_attn_layers: Iterable = nn.ModuleList([])
         time_dim = dim
@@ -220,13 +257,13 @@ class Transformer(nn.Module):
                         ),
                         FeedForward(
                             dim=time_dim,
-                            hidden_dim=config["model"]["trans"]["mlp_heads"],
-                            dropout=config["model"]["dropout"],
+                            hidden_dim=config.transformer_config["mlp_heads"],
+                            dropout=config.dropout,
                         ),
                         self.cnn_block(
-                            in_chan=config["model"]["cnn"]["num_kernels"],
-                            kernel_size=config["model"]["cnn"]["temporal_kernel"],
-                            dp=config["model"]["dropout"],
+                            in_chan=config.cnn_config["num_kernels"],
+                            kernel_size=config.cnn_config["temporal_kernel"],
+                            dp=config.dropout,
                             use_max_pool=(
                                 False if ((i % 2 == 0) and (skip_pool)) else True
                             ),
@@ -276,7 +313,7 @@ class Conv2dWithConstraint(nn.Conv2d):
         self.doWeightNorm = doWeightNorm
         super(Conv2dWithConstraint, self).__init__(*args, **kwargs)
 
-    def forward(self, input):
+    def forward(self, input: torch.Tensor):
         if self.doWeightNorm:
             self.weight.data = torch.renorm(
                 self.weight.data, p=2, dim=0, maxnorm=self.max_norm
@@ -284,5 +321,5 @@ class Conv2dWithConstraint(nn.Conv2d):
         return super(Conv2dWithConstraint, self).forward(input)
 
 
-def count_parameters(model):
+def count_parameters(model: torch.nn.Module):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)

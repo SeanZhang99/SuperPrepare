@@ -9,7 +9,7 @@ class TestConfigParser(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.config_dir = "C:/Users/sean/Documents/Seafile/ZYMdeDocument/24-12-SuperHugeAAD/scripts/dnn/configs"
+        cls.config_dir = "C:/Users/sean/Documents/Seafile/ZYMdeDocument/24-12-SuperHugeAAD/SuperHugeAAD/scripts/dnn/configs"
         cls.parser = ConfigParser(cls.config_dir)
 
     def test_instance_creation(self):
@@ -41,7 +41,6 @@ class TestConfigParser(unittest.TestCase):
         sys.stdout = sys.__stdout__
         output = captured_output.getvalue()
         self.assertIn("path", output)
-        self.assertIn("trainer_config", output)
         self.assertIn("Adam_optimizer", output)
         self.assertIn("directional_focus_decoding", output)
 
@@ -58,7 +57,6 @@ class TestConfigParser(unittest.TestCase):
     def test_model_config_generator(self):
         generator = self.parser._ConfigParser__model_config_generator()
         for config in generator:
-            self.assertIn("trainer_config", config)
             self.assertTrue(
                 any(
                     model_name in config
@@ -84,7 +82,6 @@ class TestConfigParser(unittest.TestCase):
             self.assertIn("task_config", config_dict)
             self.assertIn("fold_idx", config_dict["dataset_config"])
             self.assertIn("exg_path", config_dict["dataset_config"])
-            self.assertIn("trainer_config", config_dict["model_config"])
             self.assertTrue(
                 any(
                     model_name in config_dict["model_config"]
@@ -103,8 +100,8 @@ class TestConfigParser(unittest.TestCase):
 
     def test_len(self):
         self.assertEqual(
-            len(self.parser), sum(
-                1 for _ in self.parser._ConfigParser__all_config_generator())
+            len(self.parser),
+            sum(1 for _ in self.parser._ConfigParser__all_config_generator()),
         )
 
     def test_dataset_config(self):
@@ -112,7 +109,6 @@ class TestConfigParser(unittest.TestCase):
         self.assertIn("cross_validation", self.parser._dataset_config)
 
     def test_model_config(self):
-        self.assertIn("trainer_config", self.parser._model_config)
         self.assertIn("deformer", self.parser._model_config)
 
     def test_optimizer_config(self):
