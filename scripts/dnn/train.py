@@ -17,13 +17,14 @@ if __name__ == "__main__":
     #     config_parser._dataset_config["path"]["tmp_path"]
     # )
 
-    ddp_ports = [int(x) for x in torch.randint(
-        0, 99, (len(config_parser),))]
-    for i, config_dict in enumerate(tqdm(
-        config_parser,
-        desc="Config Generator",
-        total=len(config_parser),
-    )):
+    ddp_ports = [int(x) for x in torch.randint(0, 99, (len(config_parser),))]
+    for i, config_dict in enumerate(
+        tqdm(
+            config_parser,
+            desc="Config Generator",
+            total=len(config_parser),
+        )
+    ):
         config_parser.print_tree(config_dict)
         # create_subfolder_from_config(base_path=base_path, config_dict=config_dict)
         spawn(

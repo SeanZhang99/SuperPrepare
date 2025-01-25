@@ -21,6 +21,7 @@ from functional.AddParametersToGroups import recursivelyAddParametersToGroups
 from functional.warmupoptimizer import NoamOpt
 
 import datasets as ds_module
+from models.model_interface import MInterface
 
 
 def run_dist(
@@ -44,10 +45,16 @@ def run_dist(
     dist.barrier()
     torch.cuda.set_device(rank)
 
-    d_interface = DInterface(**dataset_config, **task_config)
-    d_interface.setup(**dataset_config, **task_config)
-    # datasets = d_interface.instancialize()
-    # dataloaders = d_interface.create_dataloaders(datasets)
+    # d_interface = DInterface(**dataset_config, **task_config)
+    # d_interface.setup(**dataset_config, **task_config)
+
+    m_interface = MInterface(
+        model_config,
+        optimizer_config,
+        lr_scheduler_config,
+        **task_config,
+        **dataset_config,
+    )
 
     #     numCategories = datasets[0].getNumClass()
     #     learningRate = config["train"]["learning_rate"]

@@ -7,3 +7,5 @@ path:
 
 cross_validation:
   n_folds: 5
+
+num_channel: 64

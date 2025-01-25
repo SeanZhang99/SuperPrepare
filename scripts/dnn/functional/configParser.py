@@ -51,24 +51,31 @@ class ConfigParser:
             if task_name == "general":
                 continue
             task_info["target"] = {
-                k: v for k, v in task_info["target"].items() if v == 1
+                k: v for k, v in task_info["target"].items() if v["enable"] == 1
             }
             task_info["cross_validation"] = {
                 k: v for k, v in task_info["cross_validation"].items() if v == 1
             }
             if not task_info["target"] or not task_info["cross_validation"]:
                 del self._task_config[task_name]
+            else:
+                self._task_config[task_name] = task_info
 
         # Merge iterable fields from 'general' config with specific configs
-        general_config = self._task_config.get("general", {})
+        self.__general_task_config = self._task_config.get("general", {})
+        for k, v in list(self.__general_task_config["window_length"].items()):
+            if v == 0:
+                del self.__general_task_config["window_length"][k]
+        del self._task_config["general"]
         for task_name, task_info in self._task_config.items():
-            if task_name == "general":
-                continue
-            for key, value in general_config.items():
+            for key, value in self.__general_task_config.items():
                 if isinstance(value, (list, tuple, set)):
                     task_info[key] = list(set(task_info.get(key, [])) | set(value))
                 elif isinstance(value, dict):
                     task_info[key] = {**value, **task_info.get(key, {})}
+                elif key not in task_info.keys():
+                    task_info[key] = value
+            self._task_config[task_name] = task_info
 
         self.__len = len([_ for _ in self.__all_config_generator()])
 
@@ -129,38 +136,63 @@ class ConfigParser:
 
     def __dataset_config_generator(self):
         return (
-            {**self._dataset_config["path"], "fold_idx": fold_idx}
+            {
+                **self._dataset_config["path"],
+                "fold_idx": fold_idx,
+                **{
+                    k: v
+                    for k, v in self._dataset_config.items()
+                    if k != "path" and k != "cross_validation"
+                },
+            }
             for fold_idx in range(self._dataset_config["cross_validation"]["n_folds"])
         )
 
     def __model_config_generator(self):
-        trainer_config = self._model_config.get("trainer_config", {})
         return (
-            {"trainer_config": trainer_config, model_name: model_config}
+            {model_name: model_config}
             for model_name, model_config in self._model_config.items()
-            if model_name != "trainer_config"
         )
 
     def __task_config_generator(self):
-        general_config = self._task_config.get("general", {})
         for task_name, task_info in self._task_config.items():
-            if task_name == "general":
-                continue
-            task_info_with_general = {**general_config, **task_info}
-            for target_name in task_info_with_general["target"]:
+            task_info_with_general = {**self.__general_task_config, **task_info}
+            for target_name, target_info in task_info_with_general["target"].items():
                 for cv_name in task_info_with_general["cross_validation"]:
-                    metadata_fields = [
-                        target_name if field == "as_target" else field
-                        for field in task_info_with_general["metadata_fields"]
-                    ]
-                    yield {
-                        "task_name": task_name,
-                        "type": task_info_with_general["type"],
-                        "target": target_name,
-                        "cross_validation": cv_name,
-                        "dataset_name": task_info_with_general["dataset_name"],
-                        "metadata_fields": metadata_fields,
-                    }
+                    for window_length in task_info_with_general["window_length"]:
+                        metadata_fields = [
+                            target_name if field == "target_name" else field
+                            for field in task_info_with_general["metadata_fields"]
+                        ]
+                        out = {
+                            "task_name": task_name,
+                            "target": target_name,
+                            "cross_validation": cv_name,
+                            "metadata_fields": metadata_fields,
+                            "window_length": window_length,
+                            **{
+                                k: v
+                                for k, v in task_info_with_general.items()
+                                if k
+                                not in [
+                                    "target",
+                                    "cross_validation",
+                                    "metadata_fields",
+                                    "window_length",
+                                ]
+                            },
+                        }
+                        # add extra fields from target_info
+                        # example:
+                        # target_info = {
+                        #     "enable": 1,
+                        #     "num_class": 2,
+                        #    }
+                        # add num_class to out
+                        for key, value in target_info.items():
+                            if key != "enable":
+                                out[key] = value
+                        yield out
 
     def __len__(self):
         return self.__len
