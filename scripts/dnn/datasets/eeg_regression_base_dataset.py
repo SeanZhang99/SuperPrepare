@@ -1,5 +1,6 @@
 from datasets.eeg_dataset import *
 from scipy.io import loadmat
+from datasets.regressionFilter import get_regression_filter
 
 
 class EEGDatasetWithSpeechFeatureCreationConfig(CreateDatasetsInputConfig):
@@ -8,6 +9,8 @@ class EEGDatasetWithSpeechFeatureCreationConfig(CreateDatasetsInputConfig):
 
 
 class EegRegressionBaseDataset(EegDataset):
+    metadata_cls = RegressionMetaDataElement
+
     def __init__(self, **kwargs):
         """
         Args:
@@ -26,8 +29,7 @@ class EegRegressionBaseDataset(EegDataset):
         elif feature_type in ["mel", "mel spectrum", "mfcc"]:
             self.speech_feature_type = "mel"
         else:
-            raise ValueError(
-                f"Unsupported speech feature type: {feature_type}")
+            raise ValueError(f"Unsupported speech feature: {feature_type}")
 
     def __getitem__(self, idx):
         """
@@ -36,7 +38,7 @@ class EegRegressionBaseDataset(EegDataset):
         meta, exg = super().__getitem__(idx).values()
 
         # 获取语音特征文件名
-        speech_feature_file = meta[self.speech_feature_type]
+        speech_feature_file = getattr(meta, self.speech_feature_type, None)
         if speech_feature_file is None:
             raise ValueError(
                 f"Speech feature file not found in metadata for file {
@@ -67,13 +69,13 @@ class EegRegressionBaseDataset(EegDataset):
         meta_filter_func: (
             Callable[
                 [
-                    MetaDataElement,
+                    RegressionMetaDataElement,
                 ],
-                MetaDataElement | None,
+                RegressionMetaDataElement | None,
             ]
             | None
         ),
-        **kwargs
+        **kwargs,
     ):
         assert "target" in kwargs, "target must be provided in kwargs"
         if meta_filter_func is None:

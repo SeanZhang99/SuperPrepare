@@ -22,7 +22,7 @@ class EegClassifyDatasetWithSpectrum(EegClassifyBaseDataset):
         meta, segment, label = super().__getitem__(idx).values()
 
         # 提取谱图
-        spectrum = meta.get(self.spectrum_key)
+        spectrum = getattr(meta, self.spectrum_key, None)
         if spectrum is None:
             raise ValueError(
                 f"Spectrum key '{self.spectrum_key}' not found in metadata for file {self.files[idx]}."

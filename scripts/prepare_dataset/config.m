@@ -15,6 +15,7 @@ for feature_type = ["wav","env","mel"]
 end
 
 dataset_names = ["NJU_preprocessed","DTU_preprocessed","KUL_preprocessed","Alices_raw","sparKULee_preprocessed"];
-% dataset_names = ["sparKULee_preprocessed"];
+% dataset_names = ["KUL_preprocessed"];
 
+pyenv("ExecutionMode","InProcess")
 py.sys.path().append(".\utils\")

@@ -4,7 +4,6 @@ import math
 
 import librosa
 import numpy as np
-import scipy.signal
 
 
 def calculate_mel_spectrogram(
@@ -43,10 +42,6 @@ def calculate_mel_spectrogram(
         Mel spectrogram
     """
 
-    # unzip audio file
-
-    # speech = dict(np.load(audio_path))
-    # audio, fs = speech["audio"], speech["fs"]
     if not hop_length:
         hop_length = int(
             (1 / target_fs) * fs
@@ -75,7 +70,6 @@ def calculate_mel_spectrogram(
         n_mels=nb_filters,
         center=False,
     )
-
     return mel_spectrogram
 
 

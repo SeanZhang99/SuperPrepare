@@ -2,11 +2,13 @@ from collections.abc import Callable, Iterable
 from typing import Any
 from datasets.classifyFilter import get_classification_filter
 from datasets.eeg_dataset import EegDataset
-from datasets.leaveOneOut import Callable
-from datasets.leaveOneOut import MetaDataElement
+from datasets.metadata_processing import Callable, ClassifyMetaDataElement
+from datasets.metadata_processing import MetaDataElement
 
 
 class EegClassifyBaseDataset(EegDataset):
+    metadata_cls = ClassifyMetaDataElement
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         required_meta_fields = ["label"]
@@ -14,7 +16,7 @@ class EegClassifyBaseDataset(EegDataset):
 
     def __getitem__(self, idx):
         meta, exg = super().__getitem__(idx).values()
-        label = meta["label"]
+        label = getattr(meta, "label", None)
         return {"meta": meta, "exg": exg, "label": label}
 
     @classmethod
@@ -23,9 +25,9 @@ class EegClassifyBaseDataset(EegDataset):
         meta_filter_func: (
             Callable[
                 [
-                    MetaDataElement,
+                    ClassifyMetaDataElement,
                 ],
-                MetaDataElement | None,
+                ClassifyMetaDataElement | None,
             ]
             | None
         ),

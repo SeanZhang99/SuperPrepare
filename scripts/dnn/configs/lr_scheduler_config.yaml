@@ -1,7 +1,0 @@
-CosineAnnealingLR_scheduler:
-  name: CosineAnnealingLR
-  config:
-    T_max: 100
-    eta_min: 1e-8
-    last_epoch: -1
-    verbose: false

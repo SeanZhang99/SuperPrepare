@@ -1,5 +1,6 @@
 clear;clc;close all;
 addpath(".\utils\");
+profile on
 
 config;
 
@@ -54,6 +55,7 @@ for dataset_id = 1:length(dataset_names)
             end
             stimuli_is_available = stimuli_path~=""&&~isempty(stimuli);
 
+            env_filename = "";
             if env_path ~= ""
                 % load attended envelope if provided
                 env_filename = split(env_path,".");
@@ -65,12 +67,17 @@ for dataset_id = 1:length(dataset_names)
                 % dataset provide envelope, unknown name
                 env_filename = sprintf("%s_env",entry);
             end
-            if (env_path~="" && env_filename~="" ) && (ENVELOPE_OVERRIDE || ~exist(fullfile(stimuli_path,sprintf("%s.npy",env_path)),"file"))
-                if isempty(env) && stimuli_is_available;[~,env] = calculateEnvelopeERBGammatone(stimuli,stimuli_fs,15,.3);env = resample(env,fs,stimuli_fs);end
+            if env_filename~=""  && (ENVELOPE_OVERRIDE || ~exist(fullfile(stimuli_path,sprintf("%s.npy",env_path)),"file"))
+                if isempty(env) && stimuli_is_available
+                    [~,env] = calculateEnvelopeERBGammatone(stimuli,stimuli_fs,15,.3);
+                    env = resample(env,fs,stimuli_fs);
+                end
                 if isempty(env) && env_path ~="";[env,~] = load_stimuli(dataset_info.audio_path,env_path);end
-                py.numpy.save(fullfile(wav_path,"env",sprintf("%s.npy",env_filename)),py.numpy.array(env));
+                env_path = fullfile(wav_path,"env",sprintf("%s.npy",env_filename));
+                py.numpy.save(env_path,py.numpy.array(env));
             end
 
+            mel_filename = "";
             if mel_path ~= ""
                 % load attended mel spectrum if provided
                 mel_filename = split(mel_path,".");
@@ -82,10 +89,13 @@ for dataset_id = 1:length(dataset_names)
                 % dataset provide mel spectrum, unknown file name
                 mel_filename = sprintf("%s_mel",entry);
             end
-            if (mel_path~="" && mel_filename~="" ) && (STIMULI_OVERRIDE || ~exist(fullfile(stimuli_path,sprintf("%s.npy",mel_path)),"file"))
+            if mel_filename~=""  && (STIMULI_OVERRIDE || ~exist(fullfile(stimuli_path,sprintf("%s.npy",mel_path)),"file"))
                 if isempty(mel) && mel_path ~="";[mel,~] = load_stimuli(dataset_info.audio_path,mel_path);mel = py.numpy.array(mel);end
-                if isempty(mel) && stimuli_is_available;mel = py.mel.calculate_mel_spectrogram(audio=py.numpy.array(stimuli),fs=py.int(stimuli_fs),target_fs=py.int(fs));end
-                py.numpy.save(fullfile(wav_path,"mel",sprintf("%s.npy",mel_filename)),mel);
+                if isempty(mel) && stimuli_is_available
+                    mel = py.mel.calculate_mel_spectrogram(audio=py.numpy.array(stimuli),fs=py.int(stimuli_fs),target_fs=py.int(fs));
+                end
+                mel_path = fullfile(wav_path,"mel",sprintf("%s.npy",mel_filename));
+                py.numpy.save(mel_path,mel);
             end
 
             %prepare metadata
@@ -98,10 +108,10 @@ for dataset_id = 1:length(dataset_names)
             metadata{entry}{"num_channel"} = py.int(dataset_info.nch);
             metadata{entry}{"fs"} = py.int(fs);
             metadata{entry}{"dataset_name"} = py.str(dataset_name);
-            if label~="";metadata{entry}{"label"}=py.str(label);end
+            if string(label)~="";metadata{entry}{"label"}=label;end
             if stimuli_path~="";metadata{entry}{"stimuli_path"}=py.str(stimuli_path);metadata{entry}{"stimuli_fs"}=py.int(stimuli_fs);end
             if env_path~="";metadata{entry}{"env_path"}=py.str(env_path);metadata{entry}{"env_fs"}=py.int(fs);end
-            if mel_path~="";metadata{entry}{"mel_path"}=py.str(mel);metadata{entry}{"mel_fs"}=py.int(fs);end
+            if mel_path~="";metadata{entry}{"mel_path"}=py.str(mel_path);metadata{entry}{"mel_fs"}=py.int(fs);end
             clearvars -except data_struct dataset_name metadata dataset_infos dataset_info fs dataset_id subject_id trial_id dataset_names save_path exg_path wav_path EXG_OVERRIDE STIMULI_OVERRIDE ENVELOPE_OVERRIDE MEL_SPECTRUM_OVERRIDE DEBUG_MODE
         end
     end
@@ -109,6 +119,6 @@ end
 
 %% save metadata
 pickle = py.importlib.import_module('pickle');
-with_open = py.open(fullfile(save_path,"meta","metadata.pkl"),"wb");
-pickle.dump(metadata,with_open);
-with_open.close;
+fid = py.open(fullfile(save_path,"meta","metadata.pkl"),"wb");
+pickle.dump(metadata,fid);
+fid.close;

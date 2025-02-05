@@ -1,16 +1,34 @@
 import inspect
 import random
 from collections.abc import Callable
-from typing import Any, Protocol, TypeAlias, cast, get_origin
+from typing import Any, Protocol, TypeAlias, cast
 
 from pydantic import BaseModel
 from pydantic_core import core_schema
+
+
+class MetaDataElement(BaseModel, extra="allow"):
+    dataset_id: int | None = 0
+    subject_id: int | None = 0
+    trial_id: int | None = 0
+    num_channel: int | None = 0
+    signal_length: int | None = 0
+    fs: int | None = 0
+
+
+class RegressionMetaDataElement(MetaDataElement):
+    env: str | None
+    mel: str | None
+
+
+class ClassifyMetaDataElement(MetaDataElement):
+    label: str | int | None
+
 
 DatasetSubjectTrialEntry: TypeAlias = str
 MetaDataField: TypeAlias = str
 FoldIndicator: TypeAlias = str
 MetaDataValue: TypeAlias = Any
-MetaDataElement: TypeAlias = dict[MetaDataField, MetaDataValue]
 MetaData: TypeAlias = dict[DatasetSubjectTrialEntry, MetaDataElement]
 CrossValidationEntry: TypeAlias = dict[FoldIndicator, list[DatasetSubjectTrialEntry]]
 
@@ -151,8 +169,10 @@ def loto(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
 
     # Organize trials by dataset and subject
     for trial_entry, trial_metadata in metadata.items():
-        dataset_id = trial_metadata["dataset_id"]
-        subject_id = trial_metadata["subject_id"]
+        dataset_id = trial_metadata.dataset_id
+        subject_id = trial_metadata.subject_id
+        assert dataset_id is not None, "Dataset ID cannot be None"
+        assert subject_id is not None, "Subject ID cannot be None"
         dataset_subject_trials.setdefault(dataset_id, {}).setdefault(
             subject_id, []
         ).append(trial_entry)
@@ -195,8 +215,10 @@ def loso(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
 
     # Organize trials by dataset and subject
     for trial_id, trial_metadata in metadata.items():
-        dataset_id = trial_metadata["dataset_id"]
-        subject_id = trial_metadata["subject_id"]
+        dataset_id = trial_metadata.dataset_id
+        subject_id = trial_metadata.subject_id
+        assert dataset_id is not None, "Dataset ID cannot be None"
+        assert subject_id is not None, "Subject ID cannot be None"
         dataset_subject_trials.setdefault(dataset_id, {}).setdefault(
             subject_id, []
         ).append(trial_id)
@@ -240,8 +262,10 @@ def lodo(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
 
     # Organize trials by dataset and subject
     for trial_id, trial_metadata in metadata.items():
-        dataset_id = trial_metadata["dataset_id"]
-        subject_id = trial_metadata["subject_id"]
+        dataset_id = trial_metadata.dataset_id
+        subject_id = trial_metadata.subject_id
+        assert dataset_id is not None, "Dataset ID cannot be None"
+        assert subject_id is not None, "Subject ID cannot be None"
         dataset_subject_trials.setdefault(dataset_id, {}).setdefault(
             subject_id, []
         ).append(trial_id)
@@ -279,25 +303,20 @@ def generate_test_metadata(
     max_trials_per_subject=20,
 ) -> MetaData:
     metadata = {}
-    # 遍历数据集
     for i in range(num_datasets):
-
-        # 遍历每个受试
         for j in range(num_subjects_per_dataset):
-
-            # 每个受试有不同的试次数量，范围在 min_trials_per_subject 和 max_trials_per_subject之间
             num_trials = random.randint(min_trials_per_subject, max_trials_per_subject)
-
-            # 遍历试次
             for k in range(num_trials):
-                metadata[f"dataset-{i+1:03d}-subject-{j+1:03d}-trial-{k+1:03d}"] = {
-                    "dataset_id": i + 1,
-                    "subject_id": j + 1,
-                    "trial_id": k + 1,
-                    "num_channel": 32,
-                    "signal_length": 1e4,
-                    "fs": 128,
-                }
+                metadata[f"dataset-{i+1:03d}-subject-{j+1:03d}-trial-{k+1:03d}"] = (
+                    MetaDataElement(
+                        dataset_id=i + 1,
+                        subject_id=j + 1,
+                        trial_id=k + 1,
+                        num_channel=32,
+                        signal_length=10000,
+                        fs=128,
+                    )
+                )
 
     return metadata
 

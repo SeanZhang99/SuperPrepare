@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 import yaml
 import os
 from typing import Any
+import importlib
 
 
 @dataclass
@@ -11,15 +12,9 @@ class ConfigParser:
     _model_config: dict[str, dict[str, Any]] = field(default_factory=dict)
     _optimizer_config: dict[str, dict[str, Any]] = field(default_factory=dict)
     _task_config: dict[str, dict[str, Any]] = field(default_factory=dict)
-    _lr_scheduler_config: dict[str, dict[str, Any]] = field(default_factory=dict)
+    _callback_config: dict[str, dict[str, Any]] = field(default_factory=dict)
     _config_types: list[str] = field(
-        default_factory=lambda: [
-            "dataset",
-            "model",
-            "optimizer",
-            "task",
-            "lr_scheduler",
-        ]
+        default_factory=lambda: ["dataset", "model", "optimizer", "task", "callback"]
     )
 
     def __post_init__(self):
@@ -33,11 +28,6 @@ class ConfigParser:
             )
             config_data = self.__load_yaml_config(file_path)
             setattr(self, f"_{config_type}_config", config_data)
-
-        assert len(self._optimizer_config) == 1, "Only one optimizer should be defined."
-        assert (
-            len(self._lr_scheduler_config) == 1
-        ), "Only one lr_scheduler should be defined."
 
         for k, v in self._dataset_config.get("path", {}).items():
             self._dataset_config["path"][k] = (
@@ -194,24 +184,36 @@ class ConfigParser:
                                 out[key] = value
                         yield out
 
+    def __get_callback(self):
+        callbacks = []
+        for callback_name, callback_info in self._callback_config.items():
+            module_name = "pytorch_lightning.callbacks"
+            class_name = "".join(
+                [
+                    part[0].upper() + part[1:]
+                    for part in callback_info["name"].split("_")
+                ]
+            )
+            try:
+                CallbackClass = getattr(
+                    importlib.import_module(module_name), class_name
+                )
+            except AttributeError:
+                raise ValueError(f"Invalid callback name: {callback_info['name']}")
+            args = callback_info.get("args", {})
+            callbacks.append(CallbackClass(**args))
+        return callbacks
+
     def __len__(self):
         return self.__len
 
     def __all_config_generator(self):
-        optimizer_name, optimizer_config = next(iter(self._optimizer_config.items()))
-        scheduler_name, scheduler_config = next(iter(self._lr_scheduler_config.items()))
         return (
             {
                 "dataset_config": dataset_config,
                 "model_config": model_config,
-                "optimizer_config": {
-                    "name": optimizer_name,
-                    "config": optimizer_config,
-                },
-                "lr_scheduler_config": {
-                    "name": scheduler_name,
-                    "config": scheduler_config,
-                },
+                "optimizer_config": self._optimizer_config,
+                "callback_list": self.__get_callback(),
                 "task_config": task_config,
             }
             for dataset_config in self.__dataset_config_generator()

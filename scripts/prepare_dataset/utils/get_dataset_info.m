@@ -14,8 +14,8 @@ for dataset_name = dataset_names
     n_subject = [];
     switch dataset_name
         case {"NJU_raw","NJU_preprocessed"}
-            base_path = "D:\EEG dataset\NJU\filter_zscore_asr_ica_no_eye_inspect";
-            audio_path = "";
+            base_path = sprintf("E:\\EEG_RAW_DATA\\NJU-15class-Emotiv-AAD\\exg\\%s",type);
+            audio_path = "E:\EEG_RAW_DATA\NJU-15class-Emotiv-AAD\stimuli";
             fs = 128;
             filelists = dir(fullfile(base_path,"S*.mat"));
             nch = 32;
