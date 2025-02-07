@@ -1,19 +1,29 @@
-deformer:
-  batch_size: "auto"
-  enable: 1
-  skip_pool: 0
-  symmetric_qk: 0
-  dropout: 0.3
-  cnn_config:
-    temporal_kernel: 13
-    num_kernels: 64
-  transformer_config:
-    depth: 4
-    chan_num_heads: 32
-    chan_dim_heads: 1024
-    mlp_heads: 32
-  aux_config:
-    aux_hidden_dim: 256
-  post_mlp_config:
-    post_mlp_dim: 256
-  overwrite_optimizer: {}
+class_path: models.model_interface.ClassifierInterface
+init_args:
+  model_class: models.deformer.Deformer
+  model_args:
+    skip_pool: false
+    symmetric_qk: false
+    dropout: 0.5
+    num_kernels: 13
+    temporal_kernel_size: 64
+    mha_depth: 4
+    mha_num_heads: 32
+    mha_dim_heads: 1024
+    mha_hidden_dim: 32
+    fc_num_neurons: 256
+    fs: 128
+    window_length: 10
+    num_channel: 32
+    num_class: 2
+  lr: 1e-3
+  loss:
+    class_path: torch.nn.modules.loss.CrossEntropyLoss
+    init_args:
+      weight: null
+      size_average: null
+      ignore_index: -100
+      reduce: null
+      reduction: "mean"
+  loss_hparams: null
+

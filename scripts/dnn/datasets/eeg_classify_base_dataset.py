@@ -1,12 +1,17 @@
-from collections.abc import Callable, Iterable
-from typing import Any
-from datasets.classifyFilter import get_classification_filter
-from datasets.eeg_dataset import EegDataset
-from datasets.leaveOneOut import Callable
-from datasets.leaveOneOut import MetaDataElement
+from collections.abc import Callable
+
+from .classifyFilter import (
+    get_classification_filter,
+    ALLOWED_NUM_CLASS_INT,
+    ALLOWED_NUM_CLASS_STRING,
+)
+from .eeg_dataset import EegDataset
+from .metadata_processing import Callable, ClassifyMetaDataElement
 
 
 class EegClassifyBaseDataset(EegDataset):
+    metadata_cls = ClassifyMetaDataElement
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         required_meta_fields = ["label"]
@@ -23,15 +28,28 @@ class EegClassifyBaseDataset(EegDataset):
         meta_filter_func: (
             Callable[
                 [
-                    MetaDataElement,
+                    ClassifyMetaDataElement,
                 ],
-                MetaDataElement | None,
+                ClassifyMetaDataElement | None,
             ]
             | None
         ),
-        **kwargs
+        *args,
+        **kwargs,
     ):
-        assert "target" in kwargs, "target must be provided in kwargs"
+        assert (
+            len(args) > 0 or "target" in kwargs
+        ), "target must be specified at the first positional argument or as a keyword argument"
+        target = args[0] if len(args) > 0 else kwargs["target"]
+
+        # Validate target is a valid argument
+        assert (isinstance(target, int) and target in ALLOWED_NUM_CLASS_INT) or (
+            isinstance(target, str) and target in ALLOWED_NUM_CLASS_STRING
+        ), f"target must be a valid integer from {ALLOWED_NUM_CLASS_INT} or a valid string from {ALLOWED_NUM_CLASS_STRING}"
+        assert isinstance(
+            target, (int, str)
+        ), "target must be either an integer or a string"
+
         if meta_filter_func is None:
-            meta_filter_func = get_classification_filter(kwargs["target"])
+            meta_filter_func = get_classification_filter(target)
         return meta_filter_func

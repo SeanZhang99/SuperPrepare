@@ -15,7 +15,6 @@ from torch.optim.adam import Adam
 from torch.utils.data.distributed import DistributedSampler as DSampler
 from tqdm import tqdm, trange
 
-from datasets import eeg_regression_base_dataset
 from datasets.data_interface import DInterface
 from functional.AddParametersToGroups import recursivelyAddParametersToGroups
 from functional.warmupoptimizer import NoamOpt

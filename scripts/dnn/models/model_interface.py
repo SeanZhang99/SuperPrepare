@@ -12,63 +12,133 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
-from pyexpat import model
-from typing import Iterable
+from collections.abc import Sequence
+from typing import Any
 import torch
-import importlib
-from torch.nn import functional as F
-import torch.optim.lr_scheduler as lrs
 
-import pytorch_lightning as pl
+import lightning as pl2
+
+from .model_template import ModelTemplate
 
 
-class MInterface(pl.LightningModule):
+class MInterface(pl2.LightningModule):
     def __init__(
         self,
-        model_config: dict,
-        optimizer_config: dict,
-        lr_scheduler_config: dict,
-        **kwargs,
+        /,
+        model_class: type[ModelTemplate],
+        model_args: dict[str, Any],
+        lr: float,
+        loss: torch.nn.modules.loss._Loss | Sequence[torch.nn.modules.loss._Loss],
+        loss_hparams: Sequence[float] | None = None,
+        precision: torch.dtype = torch.float32,
     ):
         super().__init__()
-        self.model_name = list(model_config.keys())[0]
-        self.model_config = model_config[self.model_name]
-        self.optimizer_config = optimizer_config
-        self.lr_scheduler_config = lr_scheduler_config
-        self.load_model(**kwargs)
+        self.precision = precision
+        if isinstance(loss, Sequence):
+            assert isinstance(loss_hparams, Sequence) and len(loss) == len(
+                loss_hparams
+            ), f"When specifying multiple losses, you must also specify the corresponding loss weights, but got {loss} and {loss_hparams}"
+        elif isinstance(loss, torch.nn.modules.loss._Loss):
+            assert (
+                loss_hparams is None
+            ), f"When specifying a single loss, you should not specify the loss weights, but got {loss} and {loss_hparams}"
+        self.model = model_class.create_models(**model_args).to(self.precision)
+        self.loss = loss
+        self.loss_hparams = loss_hparams
+        self.lr = lr
+        self.configure_loss()
 
-    def load_model(self, **other_args):
-        # Change the `snake_case.py` file name to `CamelCase` class name.
-        # Please always name your model file name as `snake_case.py` and
-        # class name corresponding `CamelCase`.
-        camel_name = "".join([i.capitalize() for i in self.model_name.split("_")])
-        try:
-            Model = getattr(
-                importlib.import_module("." + self.model_name, package=__package__),
-                camel_name,
-            )
-        except:
-            raise ValueError(
-                f"Invalid Module File Name or Invalid Class Name {self.model_name}.{camel_name}!"
-            )
-        self.model = self.instancialize(Model, **other_args)
+    def forward(self, input) -> torch.Tensor:
+        input = input.to(self.precision)
+        return self.model.forward(input)
 
-    def instancialize(self, Model, **other_args):
-        """Instancialize a model using the corresponding parameters
-        from self.hparams dictionary. You can also input any args
-        to overwrite the corresponding value in self.hparams.
-        """
+    def training_step(self, batch, batch_idx):
+        output = self.forward(batch)
+        target = torch.randn_like(output)
+        return self.loss_fn(output, target)
 
-        def extract_args(source: dict, target: dict, required_keys: Iterable[str]):
-            for key, value in source.items():
-                if key in required_keys:
-                    target[key] = value
-                elif isinstance(value, dict):
-                    extract_args(value, target, required_keys)
+    def validation_step(self, batch, batch_idx):
+        loss = self.training_step(batch, batch_idx)
+        self.log("val_loss", loss)
+        return loss
 
-        class_args = list(inspect.signature(Model.create_models).parameters.keys())
-        out_args = {}
-        extract_args(self.model_config, out_args, class_args)
-        extract_args(other_args, out_args, class_args)
-        return Model.create_models(**out_args)
+    def test_step(self, batch, batch_idx):
+        loss = self.training_step(batch, batch_idx)
+        self.log("test_loss", loss)
+        return loss
+
+    def configure_loss(self):
+        if isinstance(self.loss, Sequence):
+
+            def loss_fn(*args: Sequence[torch.Tensor | int | str]):  # type: ignore
+                loss = 0
+                for i, loss_fn in enumerate(self.loss):
+                    loss += loss_fn(*args[i])
+                return (
+                    torch.Tensor(loss) if not isinstance(loss, torch.Tensor) else loss
+                )
+
+        else:
+
+            def loss_fn(*args: torch.Tensor | int | str):
+                loss = self.loss(*args)
+                # type: ignore
+                return (
+                    torch.Tensor(loss) if not isinstance(loss, torch.Tensor) else loss
+                )
+
+        self.loss_fn = loss_fn
+
+
+class ClassifierInterface(MInterface):
+    def training_step(
+        self, batch: dict[str, torch.Tensor | dict], batch_idx: int
+    ) -> torch.Tensor:
+        exg = batch["exg"]
+        label = batch["label"]
+        outputs = self.forward(exg)
+        loss = self.loss_fn(outputs, label)  # type: ignore
+        if self.training:
+            self.log("train_loss", loss)  # Log as 'train_loss' during training
+        else:
+            self.log("val_loss", loss)
+        return loss
+
+    def validation_step(
+        self, batch: dict[str, torch.Tensor | dict], batch_idx: int
+    ) -> torch.Tensor:
+        loss = self.training_step(batch, batch_idx)
+        # do additional things here
+        return loss
+
+    def test_step(
+        self, batch: dict[str, torch.Tensor | dict], batch_idx: int
+    ) -> torch.Tensor:
+        return self.validation_step(batch, batch_idx)
+
+
+class RegressionInterface(MInterface):
+    def training_step(
+        self, batch: dict[str, torch.Tensor | dict], batch_idx: int
+    ) -> torch.Tensor:
+        inputs = batch["exg"]
+        targets = batch["audio"]
+        outputs = self.forward(inputs)
+        loss = self.loss_fn(outputs, targets)  # type: ignore
+        if self.training:
+            self.log("train_loss", loss)  # Log as 'train_loss' during training
+        else:
+            self.log("val_loss", loss)
+        return loss
+
+    def validation_step(
+        self, batch: dict[str, torch.Tensor | dict], batch_idx: int
+    ) -> torch.Tensor:
+        loss = self.training_step(batch, batch_idx)
+        # do additional things here
+        return loss
+
+    def test_step(
+        self, batch: dict[str, torch.Tensor | dict], batch_idx: int
+    ) -> torch.Tensor:
+        return self.validation_step(batch, batch_idx)

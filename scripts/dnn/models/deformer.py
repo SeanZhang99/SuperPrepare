@@ -2,6 +2,7 @@
 # This is the network script
 from platform import win32_edition
 from threading import local
+import einops
 from numpy import iterable
 import torch
 from torch import nn
@@ -11,24 +12,28 @@ from einops.layers.torch import Rearrange
 
 from collections.abc import Iterable
 from pydantic import BaseModel
-from functional.fast_dict_access import FastDictAccess
+
+from .model_template import ModelTemplate
 
 
 class createDeformerInputConfig(BaseModel):
     skip_pool: bool
     symmetric_qk: bool
     dropout: float
-    cnn_config: dict
-    transformer_config: dict
-    aux_config: dict
-    post_mlp_config: dict
+    num_kernels: int
+    temporal_kernel_size: int
+    mha_depth: int
+    mha_num_heads: int
+    mha_dim_heads: int
+    mha_hidden_dim: int
+    fc_num_neurons: int
     fs: int
     window_length: int
     num_channel: int
     num_class: int
 
 
-class Deformer(nn.Module):
+class Deformer(ModelTemplate, nn.Module):
     def cnn_block(
         self,
         in_chan,
@@ -67,23 +72,31 @@ class Deformer(nn.Module):
         skip_pool: bool,
         symmetric_qk: bool,
         dropout: float,
-        cnn_config: dict,
-        transformer_config: dict,
-        aux_config: dict,
-        post_mlp_config: dict,
+        num_kernels: int,
+        temporal_kernel_size: int,
+        mha_depth: int,
+        mha_num_heads: int,
+        mha_dim_heads: int,
+        mha_hidden_dim: int,
+        fc_num_neurons: int,
         fs: int,
         window_length: int,
         num_channel: int,
         num_class: int,
+        **kwargs: dict,
     ):
+
         model_config = createDeformerInputConfig(
             skip_pool=skip_pool,
             symmetric_qk=symmetric_qk,
             dropout=dropout,
-            cnn_config=cnn_config,
-            transformer_config=transformer_config,
-            aux_config=aux_config,
-            post_mlp_config=post_mlp_config,
+            num_kernels=num_kernels,
+            temporal_kernel_size=temporal_kernel_size,
+            mha_depth=mha_depth,
+            mha_num_heads=mha_num_heads,
+            mha_dim_heads=mha_dim_heads,
+            mha_hidden_dim=mha_hidden_dim,
+            fc_num_neurons=fc_num_neurons,
             fs=fs,
             window_length=window_length,
             num_channel=num_channel,
@@ -93,14 +106,15 @@ class Deformer(nn.Module):
 
     def __init__(self, *, model_config: createDeformerInputConfig):
         super().__init__()
+        super(ModelTemplate, self).__init__()
 
-        num_kernel = model_config.cnn_config["num_kernels"]
-        temporal_kernel = model_config.cnn_config["temporal_kernel"]
+        num_kernel = model_config.num_kernels
+        temporal_kernel = model_config.temporal_kernel_size
 
         num_time = model_config.fs * model_config.window_length
         num_chan = model_config.num_channel
 
-        depth = model_config.transformer_config["depth"]
+        depth = model_config.mha_depth
 
         self.skip_pool = model_config.skip_pool
         self.cnn_encoder1 = self.cnn_block(
@@ -127,17 +141,17 @@ class Deformer(nn.Module):
         out_size = int(num_kernel * L[-1]) + int(num_kernel * depth)
 
         self.mlp_head = nn.Sequential(
-            nn.Linear(out_size, model_config.post_mlp_config["post_mlp_dim"]),
+            nn.Linear(out_size, model_config.fc_num_neurons),
             nn.ELU(),
             nn.Linear(
-                model_config.post_mlp_config["post_mlp_dim"],
+                model_config.fc_num_neurons,
                 model_config.num_class,
             ),
         )
 
     def forward(self, eeg, *args):
-        # eeg: (b, chan, time)
-        eeg = torch.unsqueeze(eeg, dim=1)  # (b, 1, chan, time)
+        # eeg: (b, time, chan)
+        eeg = einops.rearrange(eeg, "b t (f c) -> b f c t", f=1)
         x = self.cnn_encoder1(eeg)  # (b, num_kernel, 1, num_time)
 
         x = self.to_patch_embedding(x)
@@ -177,10 +191,14 @@ class FeedForward(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, dim, config: createDeformerInputConfig, keyword="chan"):
+    def __init__(
+        self,
+        dim,
+        config: createDeformerInputConfig,
+    ):
         super().__init__()
-        heads = config.transformer_config[f"{keyword}_num_heads"]
-        dim_head = config.transformer_config[f"{keyword}_dim_heads"]
+        heads = config.mha_num_heads
+        dim_head = config.mha_dim_heads
         dropout = config.dropout
         symmetric_qk = config.symmetric_qk
         inner_dim = dim_head * heads
@@ -205,12 +223,14 @@ class Attention(nn.Module):
         if not self.symmetric_qk:
             qkv = self.to_qkv(x).chunk(3, dim=-1)
             q, k, v = map(
-                lambda t: rearrange(t, "b n (h d) -> b h n d", h=self.heads), qkv
+                lambda t: rearrange(
+                    t, "b n (h d) -> b h n d", h=self.heads), qkv
             )
             dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
         else:
             qv = self.to_qkv(x).chunk(2, dim=-1)
-            q, v = map(lambda t: rearrange(t, "b n (h d) -> b h n d", h=self.heads), qv)
+            q, v = map(lambda t: rearrange(
+                t, "b n (h d) -> b h n d", h=self.heads), qv)
             dots = torch.matmul(q, q.transpose(-1, -2)) * self.scale
 
         attn = torch.softmax(dots, dim=-1)
@@ -231,7 +251,8 @@ class Transformer(nn.Module):
             ),
             nn.BatchNorm1d(in_chan),
             nn.ELU(),
-            nn.MaxPool1d(kernel_size=2, stride=2) if use_max_pool else nn.Identity(),
+            nn.MaxPool1d(
+                kernel_size=2, stride=2) if use_max_pool else nn.Identity(),
         )
 
     def __init__(
@@ -240,32 +261,33 @@ class Transformer(nn.Module):
         config: createDeformerInputConfig,
     ):
         super().__init__()
-        depth = config.transformer_config["depth"]
+        depth = config.mha_depth
         skip_pool = config.skip_pool
         self.chan_attn_layers: Iterable = nn.ModuleList([])
         self.time_attn_layers: Iterable = nn.ModuleList([])
         time_dim = dim
         for i in range(depth):
-            time_dim = time_dim if ((i % 2 == 0) and skip_pool) else int(time_dim * 0.5)
+            time_dim = time_dim if (
+                (i % 2 == 0) and skip_pool) else int(time_dim * 0.5)
             self.chan_attn_layers.append(
                 nn.ModuleList(
                     [
                         Attention(
                             dim=time_dim,
                             config=config,
-                            keyword="chan",
                         ),
                         FeedForward(
                             dim=time_dim,
-                            hidden_dim=config.transformer_config["mlp_heads"],
+                            hidden_dim=config.mha_hidden_dim,
                             dropout=config.dropout,
                         ),
                         self.cnn_block(
-                            in_chan=config.cnn_config["num_kernels"],
-                            kernel_size=config.cnn_config["temporal_kernel"],
+                            in_chan=config.num_kernels,
+                            kernel_size=config.temporal_kernel_size,
                             dp=config.dropout,
                             use_max_pool=(
-                                False if ((i % 2 == 0) and (skip_pool)) else True
+                                False if ((i % 2 == 0) and (
+                                    skip_pool)) else True
                             ),
                         ),
                         nn.LayerNorm(

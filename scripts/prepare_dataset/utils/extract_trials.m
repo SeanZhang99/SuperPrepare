@@ -17,6 +17,7 @@ for trial_idx = trial_idxs
             if trial_idx <= length(data_struct.data.eeg)
                 exg = data_struct.data.eeg{trial_idx};
                 [~,label] = get_attention_directions(data_struct.expinfo,trial_idx);
+                % original label: string of number, convert to pure numeric
                 stimuli_path = table2array(data_struct.expinfo(trial_idx,2+(data_struct.expinfo.attended_lr(trial_idx)=="right")));
             end
         case "Alices_raw"
@@ -32,10 +33,13 @@ for trial_idx = trial_idxs
             end
             if trial_idx <= length(data_struct.(field))
                 exg = data_struct.(field){trial_idx}.RawData.EegData;
+                % original label: "L" and "R", convert to "left" and
+                % "right"
                 label = string(data_struct.(field){trial_idx}.attended_ear);
                 stimuli_path = string(data_struct.(field){trial_idx}.stimuli{1+(label=="R")});
                 split_stimuli = split(stimuli_path,"_");
                 env_path = sprintf("powerlaw subbands %s_dry.mat",join(split_stimuli(1:end-1),"_"));
+                label = fastif(label=="L","left","right");
             end
         case {"sparKULee_raw","sparKULee_preprocessed"}
             filelists = dir(fullfile(dataset_path,"sub-*","*","*.npy"));
@@ -48,15 +52,18 @@ for trial_idx = trial_idxs
         case "DTU_preprocessed"
             if trial_idx <= length(data_struct.data.eeg)
                 exg = data_struct.data.eeg{trial_idx};
+                % original label: "1" and "2", convert to "left" and
+                % "right"
                 label = int32(data_struct.data.event.eeg(trial_idx).value{:});
                 env = fastif(label==1,data_struct.data.wavA{trial_idx},data_struct.data.wavB{trial_idx});
+                label = fastif(label==1,"left","right");
             end
         otherwise
             error("Unimplemented dataset %s",dataset_name)
     end
     trial_infos(end).exg = exg;
     trial_infos(end).stimuli_path = stimuli_path;
-    trial_infos(end).label = string(label);
+    trial_infos(end).label = label;
     trial_infos(end).env_path = env_path;
     trial_infos(end).mel_path = mel_path;
     trial_infos(end).stimuli = stimuli;

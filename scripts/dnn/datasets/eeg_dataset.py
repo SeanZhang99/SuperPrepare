@@ -1,21 +1,27 @@
 import os
 import pickle
-import numpy
-from torch.utils.data import Dataset
 from collections.abc import Callable, Iterable
-from pydantic import BaseModel
-from .leaveOneOut import *
+from importlib import import_module
 from typing import Any
+
+import numpy
+from pydantic import BaseModel
+from torch.utils.data import Dataset
+
+from .metadata_processing import *
 
 
 class CreateDatasetsInputConfig(BaseModel):
     meta_path: str
     exg_path: str
-    meta_filter_func: Callable[[MetaDataElement], MetaDataElement | None] | None
-    meta_group_func: WrappedGroupingFunction
+    meta_filter_func: (
+        Callable[[ClassifyMetaDataElement], ClassifyMetaDataElement | None]
+        | Callable[[RegressionMetaDataElement], RegressionMetaDataElement | None]
+        | None
+    )
+    meta_group_func: GroupingFunction
     fold_idx: int
     n_folds: int
-    random_seed: int | None
     window_length: int
     fs: int
     overlap: int
@@ -23,32 +29,21 @@ class CreateDatasetsInputConfig(BaseModel):
     metadata_fields: list[MetaDataField]
 
 
-class LoadMetadataInputConfig(BaseModel):
-    meta_path: str
-    metadata_fields: list[str]
-
-
-class MetadataRequiredKeysConfig(BaseModel):
-    # The type of properties does not matter. It only requires the existence of the specified fields(properties)
-    dataset_id: Any
-    subject_id: Any
-    trial_id: Any
-    signal_length: Any
-    num_channel: Any
-    fs: Any
-
-
 class EegDataset(Dataset):
+    metadata_cls = MetaDataElement
+
     @classmethod
     def create_datasets(
         cls,
         /,
-        meta_path: str,
-        exg_path: str,
+        root_path: str,
         meta_filter_func: (
-            Callable[[MetaDataElement], MetaDataElement | None] | None
+            Callable[[ClassifyMetaDataElement], ClassifyMetaDataElement | None]
+            | Callable[[RegressionMetaDataElement], RegressionMetaDataElement]
+            | None
         ) = None,
-        meta_group_func: WrappedGroupingFunction | None = None,
+        meta_filter_func_args: list = [],
+        meta_group_func: GroupingFunction | None = None,
         fold_idx: int = 1,
         n_folds: int = 5,
         window_length: int = 10,
@@ -63,7 +58,6 @@ class EegDataset(Dataset):
             "fs",
         ],
         transform: Callable | None = None,
-        random_seed: int | None = None,
         **kwargs,
     ):
         """
@@ -85,16 +79,27 @@ class EegDataset(Dataset):
         Returns:
             tuple: 包含 train, val, test 数据集的元组。
         """
-        segment_length = window_length * fs
+        if isinstance(meta_filter_func, str):
+            module_name, func_name = meta_filter_func.rsplit(".", 1)
+            meta_filter_func = getattr(import_module(module_name), func_name)
+
+        if isinstance(meta_group_func, str):
+            module_name, func_name = meta_group_func.rsplit(".", 1)
+            meta_group_func = getattr(import_module(module_name), func_name)
+
         meta_group_func = loto if meta_group_func is None else meta_group_func
+        metadata_fields = list(
+            set(metadata_fields) | set(cls.metadata_cls.model_fields.keys())
+        )
         config = CreateDatasetsInputConfig(
-            meta_path=meta_path,
-            exg_path=exg_path,
-            meta_filter_func=meta_filter_func,
+            meta_path=os.path.join(root_path, "meta", "metadata.pkl"),
+            exg_path=os.path.join(root_path, "exg"),
+            meta_filter_func=cls.meta_filter_func_parser(
+                meta_filter_func, *meta_filter_func_args
+            ),
             meta_group_func=meta_group_func,
             fold_idx=fold_idx,
             n_folds=n_folds,
-            random_seed=random_seed,
             window_length=window_length,
             fs=fs,
             overlap=overlap,
@@ -104,18 +109,16 @@ class EegDataset(Dataset):
         )
 
         metadata = cls.load_metadata(
-            meta_path=config.meta_path, metadata_fields=config.metadata_fields
+            metafile_path=config.meta_path,
+            metadata_fields=config.metadata_fields,
         )
 
-        metadata = cls.filt_metadata(
-            metadata, cls.meta_filter_func_parser(config.meta_filter_func, **kwargs)
-        )
+        metadata = cls.filt_metadata(metadata, config.meta_filter_func)
 
         splits = config.meta_group_func(
             metadata=metadata,
             fold_index=config.fold_idx,
             n_folds=config.n_folds,
-            random_seed=config.random_seed,
         )
 
         dataset_modes = ["train", "val", "test"]
@@ -125,7 +128,8 @@ class EegDataset(Dataset):
                 exg_path=config.exg_path,
                 files=splits[mode],
                 metadata=metadata,
-                segment_length=segment_length,
+                fs=config.fs,
+                window_length=config.window_length,
                 overlap=config.overlap,
                 transform=config.transform,
                 metadata_fields=config.metadata_fields,
@@ -146,39 +150,35 @@ class EegDataset(Dataset):
         return filtered_metadata
 
     @classmethod
-    def meta_filter_func_parser(cls, meta_filter_func: Callable | None, **kwargs):
+    def meta_filter_func_parser(
+        cls, meta_filter_func: Callable | None, *args, **kwargs
+    ):
         return meta_filter_func
 
-    @staticmethod
-    def load_metadata(**kwargs) -> MetaData:
+    @classmethod
+    def load_metadata(cls, metafile_path, metadata_fields) -> MetaData:
         """
         从 meta.mat 文件中加载元信息。
 
         Args:
-            meta_path (str): 元信息文件路径。
-            metadata_fields (list): 需要记录的字段。
+            metafile_path (str): 元信息文件路径。
 
         Returns:
-            dict: 转换后的元信息字典。
+            dict[entry->metadata_cls]: 转换后的元信息字典。
         """
-        config = LoadMetadataInputConfig(**kwargs)
 
-        meta_path = config.meta_path
-        # Validate if meta_dict contain required field
-        metadata_fields = MetadataRequiredKeysConfig(
-            **{key: 1 for key in config.metadata_fields}
-        )
+        with open(metafile_path, "rb") as f:
+            metadata: dict[DatasetSubjectTrialEntry, dict[str, Any]] = pickle.load(f)
 
-        with open(meta_path, "rb") as f:
-            metadata = pickle.load(f)
-
-        # 转换为字典形式
+        # convert to MetaData object.
         meta_dict = {}
         for entry, data in metadata.items():
-            for meta_field, meta_value in data.items():
-                if meta_field in metadata_fields.model_fields.keys():
-                    meta_dict.setdefault(entry, {})[meta_field] = meta_value
-            _ = MetadataRequiredKeysConfig(**meta_dict[entry])
+            tmp_dict = {}
+            for k, v in data.items():
+                if k in metadata_fields:
+                    tmp_dict[k] = v
+            if set(metadata_fields).issubset(set(tmp_dict.keys())):
+                meta_dict[entry] = cls.metadata_cls(**tmp_dict)
         return meta_dict
 
     def __init__(self, **kwargs):
@@ -197,11 +197,10 @@ class EegDataset(Dataset):
 
         self.exg_path = kwargs["exg_path"]
         self.files = kwargs["files"]
-        self.metadata: MetaData = {
-            f: {key: kwargs["metadata"][f][key] for key in kwargs["metadata_fields"]}
-            for f in self.files
-        }
-        self.segment_length = kwargs.get("segment_length", 1000)  # 默认截取长度为1000
+        self.metadata: MetaData = kwargs["metadata"]
+        self.segment_length = kwargs.get("fs", 128) * kwargs.get(
+            "window_length", 10
+        )  # 默认截取长度为1280
         self.overlap = kwargs.get("overlap", 1)  # 默认无重叠
         self.transform = kwargs.get("transform", None)
 
@@ -211,7 +210,7 @@ class EegDataset(Dataset):
     def count_samples(self):
         self.total_samples = 0
         for file_meta in self.metadata.values():
-            signal_length = file_meta["signal_length"]
+            signal_length = file_meta.signal_length
             stride = self.segment_length // self.overlap
             self.total_samples += max(
                 0, (signal_length - self.segment_length) // stride + 1
@@ -241,7 +240,7 @@ class EegDataset(Dataset):
             exg = self.transform(exg)
 
         # 获取元数据
-        meta = self.metadata[file_name]
+        meta = self.metadata[file_name].model_dump()
 
         return {"meta": meta, "exg": exg}
 
@@ -257,7 +256,7 @@ class EegDataset(Dataset):
         """
         cumulative = 0
         for file_idx, file_meta in enumerate(self.metadata.values()):
-            signal_length = file_meta["signal_length"]
+            signal_length = file_meta.signal_length
             stride = self.segment_length // self.overlap
             num_segments = max(0, (signal_length - self.segment_length) // stride + 1)
             if cumulative + num_segments > idx:
@@ -277,9 +276,8 @@ class EegDataset(Dataset):
 
 
 if __name__ == "__main__":
-    meta_path = r"E:\SuperHuge\derivatives\meta\metadata.pkl"
-    exg_path = r"E:\SuperHuge\derivatives\exg"
-    datasets = EegDataset().create_datasets(meta_path=meta_path, exg_path=exg_path)
+    root_path = r"E:\SuperHuge\derivatives"
+    datasets = EegDataset().create_datasets(root_path=root_path)
     data = datasets[0][0]
     meta = data["meta"]
     exg = data["exg"]

@@ -13,87 +13,65 @@
 # limitations under the License.
 
 import inspect
-import importlib
-import pickle as pkl
+
+import lightning as pl2
+from pydantic import BaseModel
 from torch.utils.data import DataLoader
-from torch.utils.data.sampler import WeightedRandomSampler
 
-from datasets.eeg_dataset import EegDataset
-import lightning as pl  # Changed import statement
+from .eeg_dataset import EegDataset
 
 
-class DInterface(pl.LightningDataModule):
+class DInterfaceConfig(BaseModel):
+    dataset_args: dict
+    dataloader_args: dict
+    dataset_class: type[EegDataset]
 
-    def __init__(self, /, **kwargs):
+
+class DInterface(pl2.LightningDataModule):
+
+    def __init__(
+        self,
+        /,
+        dataset_class: type[EegDataset],
+        dataset_args: dict,
+        dataloader_args: dict,
+    ):
         super().__init__()
-        assert "dataset_name" in kwargs, "Please provide a dataset_name."
-        self.dataset_name = kwargs.pop("dataset_name")
-        self.kwargs = kwargs
-        self.load_data_module()
-
-    def setup(self, /, stage: str = "", **kwargs) -> None:
-        self.trainset, self.valset, self.testset = self.instancialize(**kwargs)
-        self.trainloader, self.valloader, self.testloader = self.create_dataloaders(
-            [self.trainset, self.valset, self.testset], **kwargs
+        config = DInterfaceConfig(
+            dataset_args=dataset_args,
+            dataloader_args=dataloader_args,
+            dataset_class=dataset_class,
         )
+        self.config = config
+        self.create_datasets()
 
-    def train_dataloader(self):
-        return self.trainloader
-
-    def val_dataloader(self):
-        return self.valloader
-
-    def test_dataloader(self):
-        return self.testloader
-
-    def create_dataloaders(self, datasets, **other_args):
-        inkeys = self.kwargs.keys()
-        other_keys = other_args.keys()
-        out_args = {}
-        class_args = list(inspect.signature(DataLoader).parameters.keys())
-        for arg in class_args:
-            if arg in inkeys:
-                out_args[arg] = self.kwargs[arg]
-            elif arg in other_keys:
-                out_args[arg] = other_args[arg]
-        return [DataLoader(dataset, **out_args) for dataset in datasets]
-
-    def load_data_module(self):
-        name = self.dataset_name
-        # Change the `snake_case.py` file name to `CamelCase` class name.
-        # Please always name your model file name as `snake_case.py` and
-        # class name corresponding `CamelCase`.
-        camel_name = "".join([i.capitalize() for i in name.split("_")])
-        try:
-            self.data_module: type[EegDataset] = getattr(
-                importlib.import_module(
-                    "." + name, package=__package__), camel_name
-            )
-            assert issubclass(self.data_module, EegDataset)
-        except:
-            raise ValueError(
-                f"Invalid Dataset File Name or Invalid Class Name data.{
-                    name}.{camel_name}"
-            )
-
-    def instancialize(self, **other_args):
-        """Instancialize a model using the corresponding parameters
-        from self.hparams dictionary. You can also input any args
-        to overwrite the corresponding value in self.kwargs.
-        """
-
-        def extract_args(source, target, required_keys):
-            for key, value in source.items():
-                if isinstance(value, dict):
-                    extract_args(value, target, required_keys)
-                elif key in required_keys:
-                    target[key] = value
-
+    def create_datasets(self):
         class_args = list(
             inspect.signature(
-                self.data_module.create_datasets).parameters.keys()
+                self.config.dataset_class.create_datasets
+            ).parameters.keys()
         )
-        out_args = {}
-        extract_args(self.kwargs, out_args, class_args)
-        out_args.update(other_args)
-        return self.data_module.create_datasets(**out_args)
+
+        for key in self.config.dataset_args.keys():
+            if key not in class_args:
+                raise ValueError(
+                    f"Argument {key} is not a valid argument for {
+                        self.config.dataset_class.create_datasets}. Expected arguments are {class_args}"
+                )
+
+        self.trainset, self.valset, self.testset = (
+            self.config.dataset_class.create_datasets(
+                **self.config.dataset_args)
+        )
+
+    def create_dataloader(self, dataset):
+        return DataLoader(dataset, **self.config.dataloader_args)
+
+    def train_dataloader(self):
+        return self.create_dataloader(self.trainset)
+
+    def val_dataloader(self):
+        return self.create_dataloader(self.valset)
+
+    def test_dataloader(self):
+        return self.create_dataloader(self.testset)
