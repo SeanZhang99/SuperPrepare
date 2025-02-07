@@ -36,6 +36,10 @@ for dataset_id = 1:length(dataset_names)
                 % trial index exceed
                 break
             end
+            if size(exg,2) > size(exg,1)
+                % always time-chan.
+                exg = exg';
+            end
             if EXG_OVERRIDE || ~exist(fullfile(exg_path,sprintf("%s.npy",entry)),"file")
                 py.numpy.save(fullfile(exg_path,sprintf("%s.npy",entry)),py.numpy.array(exg));
             end
@@ -112,7 +116,6 @@ for dataset_id = 1:length(dataset_names)
             if stimuli_path~="";metadata{entry}{"stimuli_path"}=py.str(stimuli_path);metadata{entry}{"stimuli_fs"}=py.int(stimuli_fs);end
             if env_path~="";metadata{entry}{"env_path"}=py.str(env_path);metadata{entry}{"env_fs"}=py.int(fs);end
             if mel_path~="";metadata{entry}{"mel_path"}=py.str(mel_path);metadata{entry}{"mel_fs"}=py.int(fs);end
-            clearvars -except data_struct dataset_name metadata dataset_infos dataset_info fs dataset_id subject_id trial_id dataset_names save_path exg_path wav_path EXG_OVERRIDE STIMULI_OVERRIDE ENVELOPE_OVERRIDE MEL_SPECTRUM_OVERRIDE DEBUG_MODE
         end
     end
 end

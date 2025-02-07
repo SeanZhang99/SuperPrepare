@@ -1,6 +1,11 @@
-from datasets.eeg_dataset import *
+import os
+from collections.abc import Callable
+
 from scipy.io import loadmat
-from datasets.regressionFilter import get_regression_filter
+
+from .eeg_dataset import CreateDatasetsInputConfig, EegDataset
+from .metadata_processing import RegressionMetaDataElement
+from .regressionFilter import ALLOWED_SPEECH_FEATURES, get_regression_filter
 
 
 class EEGDatasetWithSpeechFeatureCreationConfig(CreateDatasetsInputConfig):
@@ -38,12 +43,7 @@ class EegRegressionBaseDataset(EegDataset):
         meta, exg = super().__getitem__(idx).values()
 
         # 获取语音特征文件名
-        speech_feature_file = getattr(meta, self.speech_feature_type, None)
-        if speech_feature_file is None:
-            raise ValueError(
-                f"Speech feature file not found in metadata for file {
-                    self.files[idx]}."
-            )
+        speech_feature_file = meta[self.speech_feature_type]
 
         # 加载语音特征
         speech_feature_path = os.path.join(
@@ -58,8 +58,7 @@ class EegRegressionBaseDataset(EegDataset):
         _, segment_idx = self._map_idx_to_file_and_segment(idx)
         stride = self.segment_length // self.overlap
         start_idx = segment_idx * stride
-        speech_segment = speech_feature[start_idx: start_idx +
-                                        self.segment_length, :]
+        speech_segment = speech_feature[start_idx : start_idx + self.segment_length, :]
 
         return {"meta": meta, "exg": exg, "audio": speech_segment}
 
@@ -75,9 +74,19 @@ class EegRegressionBaseDataset(EegDataset):
             ]
             | None
         ),
+        *args,
         **kwargs,
     ):
-        assert "target" in kwargs, "target must be provided in kwargs"
+        assert (
+            len(args) > 0 or "target" in kwargs
+        ), "target must be specified at the first positional argument or as a keyword argument"
+        target = args[0] if len(args) > 0 else kwargs["target"]
+
+        # Validate target is a valid argument
+        assert (
+            target in ALLOWED_SPEECH_FEATURES
+        ), f"target must be a valid value from ALLOWED_SPEECH_FEATURES: {ALLOWED_SPEECH_FEATURES}"
+
         if meta_filter_func is None:
-            meta_filter_func = get_regression_filter(kwargs["target"])
+            meta_filter_func = get_regression_filter(target)
         return meta_filter_func

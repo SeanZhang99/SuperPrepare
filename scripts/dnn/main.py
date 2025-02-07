@@ -20,12 +20,28 @@
     and the dataset file's constructor. The MInterface and 
     DInterface can be seen as transparent to all your args.    
 """
-from lightning.pytorch.cli import LightningCLI
+import os
+import torch
+from functional.multiRunCli import MultiRunCLI
 
-
-def cli_main():
-    cli = LightningCLI(parser_kwargs={"parser_mode": "omegaconf"})
+torch.set_float32_matmul_precision("medium")
 
 
 if __name__ == "__main__":
-    cli_main()
+    project_path = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(project_path, "configs")
+    cli = MultiRunCLI(
+        "fit",
+        "--task_config",
+        os.path.join(config_path, "task_config.yaml"),
+        "--config",
+        os.path.join(config_path, "trainer_config.yaml"),
+        "--model",
+        os.path.join(config_path, "model_config.yaml"),
+        "--data",
+        os.path.join(config_path, "data_config.yaml"),
+        "--optimizer",
+        os.path.join(config_path, "optimizer_config.yaml"),
+        "--lr_scheduler",
+        os.path.join(config_path, "lr_scheduler_config.yaml"),
+    )

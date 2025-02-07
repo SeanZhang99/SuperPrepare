@@ -3,6 +3,8 @@ from .metadata_processing import RegressionMetaDataElement
 
 __all__ = ["get_regression_filter"]
 
+ALLOWED_SPEECH_FEATURES = ["env", "mel"]
+
 
 def env_filter(
     metadata_element: RegressionMetaDataElement,

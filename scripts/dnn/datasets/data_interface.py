@@ -13,16 +13,12 @@
 # limitations under the License.
 
 import inspect
-import importlib
-import pickle as pkl
-from typing import TypedDict
-from torch.utils.data import DataLoader
-from torch.utils.data.sampler import WeightedRandomSampler
-from datasets.eeg_dataset import EegDataset
 
-# from datasets.eeg_dataset import EegDataset
-import lightning as pl2  # Changed import statement
+import lightning as pl2
 from pydantic import BaseModel
+from torch.utils.data import DataLoader
+
+from .eeg_dataset import EegDataset
 
 
 class DInterfaceConfig(BaseModel):
@@ -59,11 +55,13 @@ class DInterface(pl2.LightningDataModule):
         for key in self.config.dataset_args.keys():
             if key not in class_args:
                 raise ValueError(
-                    f"Argument {key} is not a valid argument for {self.config.dataset_class.create_datasets}. Expected arguments are {class_args}"
+                    f"Argument {key} is not a valid argument for {
+                        self.config.dataset_class.create_datasets}. Expected arguments are {class_args}"
                 )
 
         self.trainset, self.valset, self.testset = (
-            self.config.dataset_class.create_datasets(**self.config.dataset_args)
+            self.config.dataset_class.create_datasets(
+                **self.config.dataset_args)
         )
 
     def create_dataloader(self, dataset):

@@ -33,33 +33,22 @@ MetaData: TypeAlias = dict[DatasetSubjectTrialEntry, MetaDataElement]
 CrossValidationEntry: TypeAlias = dict[FoldIndicator, list[DatasetSubjectTrialEntry]]
 
 
-class LeaveOneGroupOutMethodInputConfig(BaseModel, extra="allow"):
-    # This are the followings to validate
-    metadata: MetaData
-    fold_index: int
-    n_folds: int
-    random_seed: int | None
+# class LeaveOneGroupOutMethodInputConfig(BaseModel, extra="allow"):
+#     # This are the followings to validate
+#     metadata: MetaData
+#     fold_index: int
+#     n_folds: int
+#     seed: int
 
-    # extra="allow" allows Pydantic to receive additonal unvalidated key-word parameters
-    def parse(self):
-        return self.metadata, self.fold_index, self.n_folds, self.random_seed
+#     # extra="allow" allows Pydantic to receive additonal unvalidated key-word parameters
+#     def parse(self):
+#         return self.metadata, self.fold_index, self.n_folds, self.seed
 
 
 class GroupingFunction(Protocol):
     def __call__(
-        self, config: LeaveOneGroupOutMethodInputConfig
-    ) -> CrossValidationEntry: ...
-
-
-class WrappedGroupingFunction(Protocol):
-    def __call__(
         self,
-        /,
-        metadata: MetaData,
-        fold_index: int,
-        n_folds: int,
-        random_seed: int | None,
-        **kwargs: Any,
+        **kwargs,
     ) -> CrossValidationEntry: ...
 
     @classmethod
@@ -78,18 +67,22 @@ class WrappedGroupingFunction(Protocol):
             "metadata": MetaData,
             "fold_index": int,
             "n_folds": int,
-            "random_seed": int | None,  # 支持 None 类型
+            "seed": int,
         }
 
         # 检查参数名称和类型
         for expected_param_name, expected_param_type in expected_params.items():
             if expected_param_name not in func_signature.parameters:
-                raise ValueError(f"Missing required parameter: {expected_param_name}")
+                raise ValueError(
+                    f"Missing required parameter: {
+                        expected_param_name}"
+                )
 
             func_param_type = func_signature.parameters[expected_param_name].annotation
             if func_param_type is inspect._empty:
                 raise TypeError(
-                    f"Parameter {expected_param_name} must have a type annotation."
+                    f"Parameter {
+                        expected_param_name} must have a type annotation."
                 )
 
             if (
@@ -97,7 +90,8 @@ class WrappedGroupingFunction(Protocol):
                 and func_param_type not in expected_param_type
             ):
                 raise TypeError(
-                    f"Expected parameter {expected_param_name} to be {expected_param_type}, but got {func_param_type}"
+                    f"Expected parameter {expected_param_name} to be {
+                        expected_param_type}, but got {func_param_type}"
                 )
             # 验证类型是否匹配
 
@@ -138,32 +132,25 @@ class WrappedGroupingFunction(Protocol):
         return value
 
 
-def leave_one_out_input_decorator(func) -> WrappedGroupingFunction:
+def leave_one_out_input_decorator(func) -> GroupingFunction:
     def wrapper(
         metadata: MetaData,
         fold_index: int,
         n_folds: int,
-        random_seed: int | None,
+        seed: int = 42,
         **kwargs: Any,
     ) -> CrossValidationEntry:
-        config = LeaveOneGroupOutMethodInputConfig(
-            metadata=metadata,
-            fold_index=fold_index,
-            n_folds=n_folds,
-            random_seed=random_seed,
-            **kwargs,
-        )
-        return func(config)
+        return func(metadata, fold_index, n_folds, seed, **kwargs)
 
-    return cast(WrappedGroupingFunction, wrapper)
+    return cast(GroupingFunction, wrapper)
 
 
 @leave_one_out_input_decorator
-def loto(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
-    metadata, fold_index, n_folds, random_seed = config.parse()
-
-    if random_seed is not None:
-        random.seed(random_seed)
+# def loto(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
+def loto(
+    metadata: MetaData, fold_index: int, n_folds: int, seed: int = 42, **kwargs: Any
+) -> CrossValidationEntry:
+    random.seed(seed)
 
     dataset_subject_trials = {0: {0: []}}
 
@@ -206,10 +193,12 @@ def loto(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
 
 
 @leave_one_out_input_decorator
-def loso(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
-    metadata, fold_index, n_folds, random_seed = config.parse()
-    if random_seed is not None:
-        random.seed(random_seed)
+# def loso(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
+def loso(
+    metadata: MetaData, fold_index: int, n_folds: int, seed: int = 42, **kwargs: Any
+) -> CrossValidationEntry:
+    # metadata, fold_index, n_folds, seed = config.parse()
+    random.seed(seed)
 
     dataset_subject_trials = {0: {0: []}}
 
@@ -253,10 +242,12 @@ def loso(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
 
 
 @leave_one_out_input_decorator
-def lodo(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
-    metadata, fold_index, n_folds, random_seed = config.parse()
-    if random_seed is not None:
-        random.seed(random_seed)
+# def lodo(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
+def lodo(
+    metadata: MetaData, fold_index: int, n_folds: int, seed: int = 42, **kwargs: Any
+) -> CrossValidationEntry:
+    # metadata, fold_index, n_folds, seed = config.parse()
+    random.seed(seed)
 
     dataset_subject_trials = {0: {0: []}}
 
@@ -329,27 +320,21 @@ if __name__ == "__main__":
     # Testing LOTO, LOSO, and LODO with multiple folds and random seeds
     for fold_index in range(3):
         print(f"Testing LOTO for fold {fold_index}:")
-        result_loto = loto(
-            metadata=metadata, fold_index=fold_index, n_folds=3, random_seed=42
-        )
+        result_loto = loto(metadata=metadata, fold_index=fold_index, n_folds=3, seed=42)
         print(f"Train set: {result_loto['train']}")
         print(f"Validation set: {result_loto['val']}")
         print(f"Test set: {result_loto['test']}\n")
 
     for fold_index in range(5):
         print(f"Testing LOSO for fold {fold_index}:")
-        result_loso = loso(
-            metadata=metadata, fold_index=fold_index, n_folds=5, random_seed=42
-        )
+        result_loso = loso(metadata=metadata, fold_index=fold_index, n_folds=5, seed=42)
         print(f"Train set: {result_loso['train']}")
         print(f"Validation set: {result_loso['val']}")
         print(f"Test set: {result_loso['test']}\n")
 
     for fold_index in range(2):
         print(f"Testing LODO for fold {fold_index}:")
-        result_lodo = lodo(
-            metadata=metadata, fold_index=fold_index, n_folds=2, random_seed=42
-        )
+        result_lodo = lodo(metadata=metadata, fold_index=fold_index, n_folds=2, seed=42)
         print(f"Train set: {result_lodo['train']}")
         print(f"Validation set: {result_lodo['val']}")
         print(f"Test set: {result_lodo['test']}\n")

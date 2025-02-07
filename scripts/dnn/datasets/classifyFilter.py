@@ -1,6 +1,6 @@
 from collections.abc import Callable
-from .metadata_processing import ClassifyMetaDataElement
 
+from .metadata_processing import ClassifyMetaDataElement
 
 __all__ = ["get_classification_filter"]
 
@@ -12,6 +12,15 @@ ALLOWED_NUM_CLASS_STRING = [
     "eight-class",
 ]
 ALLOWED_NUM_CLASS_INT = [2, 4, 8]
+
+
+def angle_wrapper(label: int) -> int:
+    """
+    Convert -180 to 0 degree to 180-360.
+    """
+    if -180 <= label < 0:
+        return label + 360
+    return label
 
 
 def binary_leftright_filter(
@@ -32,6 +41,7 @@ def binary_leftright_filter(
             metadata_element.label = label.lower()
             result = metadata_element
     elif isinstance(label, int):
+        label = angle_wrapper(label)
         if 180 < label < 360:
             metadata_element.label = "left"
             result = metadata_element
@@ -59,6 +69,7 @@ def binary_frontrear_filter(
             metadata_element.label = label.lower()
             result = metadata_element
     elif isinstance(label, int):
+        label = angle_wrapper(label)
         if 180 < label < 360:
             metadata_element.label = "rear"
             result = metadata_element
@@ -81,6 +92,7 @@ def four_class_filter(
     result = None
     label = metadata_element.label
     if isinstance(label, int):
+        label = angle_wrapper(label)
         if 0 <= label < 45 or 315 <= label < 360:
             metadata_element.label = "Front-Right"
             result = metadata_element
@@ -110,6 +122,7 @@ def eight_class_filter(
     result = None
     label = metadata_element.label
     if isinstance(label, int):
+        label = angle_wrapper(label)
         if 337.5 <= label < 360 or 0 <= label < 22.5:
             metadata_element.label = "North"
             result = metadata_element
@@ -159,8 +172,7 @@ def get_classification_filter(
             filter_func = eight_class_filter
         else:
             raise ValueError(
-                f"Invalid number of classes. The number of classes can be {
-                    ALLOWED_NUM_CLASS_STRING}."
+                f"Invalid number of classes. The number of classes can be {ALLOWED_NUM_CLASS_STRING}."
             )
     elif isinstance(num_class, int):
         if num_class == 2:
@@ -171,8 +183,7 @@ def get_classification_filter(
             filter_func = eight_class_filter
         else:
             raise ValueError(
-                f"Invalid number of classes. The number of classes can be {
-                    ALLOWED_NUM_CLASS_INT}."
+                f"Invalid number of classes. The number of classes can be {ALLOWED_NUM_CLASS_INT}."
             )
     else:
         raise TypeError(

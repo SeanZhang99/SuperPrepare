@@ -12,19 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
-from collections.abc import Callable, Sequence
-from typing import Any, TypedDict
-from warnings import warn
-from sympy import Min
+from collections.abc import Sequence
+from typing import Any
 import torch
-from torch.nn import functional as F
-import torch.optim.lr_scheduler as lrs
 
 import lightning as pl2
-from pydantic import BaseModel
 
-from models.model_template import ModelTemplate
+from .model_template import ModelTemplate
 
 
 class MInterface(pl2.LightningModule):
@@ -36,8 +30,10 @@ class MInterface(pl2.LightningModule):
         lr: float,
         loss: torch.nn.modules.loss._Loss | Sequence[torch.nn.modules.loss._Loss],
         loss_hparams: Sequence[float] | None = None,
+        precision: torch.dtype = torch.float32,
     ):
         super().__init__()
+        self.precision = precision
         if isinstance(loss, Sequence):
             assert isinstance(loss_hparams, Sequence) and len(loss) == len(
                 loss_hparams
@@ -46,13 +42,14 @@ class MInterface(pl2.LightningModule):
             assert (
                 loss_hparams is None
             ), f"When specifying a single loss, you should not specify the loss weights, but got {loss} and {loss_hparams}"
-        self.model = model_class.create_models(**model_args)
+        self.model = model_class.create_models(**model_args).to(self.precision)
         self.loss = loss
         self.loss_hparams = loss_hparams
         self.lr = lr
         self.configure_loss()
 
     def forward(self, input) -> torch.Tensor:
+        input = input.to(self.precision)
         return self.model.forward(input)
 
     def training_step(self, batch, batch_idx):
@@ -85,7 +82,10 @@ class MInterface(pl2.LightningModule):
 
             def loss_fn(*args: torch.Tensor | int | str):
                 loss = self.loss(*args)
-                return torch.Tensor(loss) if not isinstance(loss, torch.Tensor) else loss  # type: ignore
+                # type: ignore
+                return (
+                    torch.Tensor(loss) if not isinstance(loss, torch.Tensor) else loss
+                )
 
         self.loss_fn = loss_fn
 
@@ -95,7 +95,7 @@ class ClassifierInterface(MInterface):
         self, batch: dict[str, torch.Tensor | dict], batch_idx: int
     ) -> torch.Tensor:
         exg = batch["exg"]
-        label = batch["lable"]
+        label = batch["label"]
         outputs = self.forward(exg)
         loss = self.loss_fn(outputs, label)  # type: ignore
         if self.training:

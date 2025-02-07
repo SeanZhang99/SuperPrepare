@@ -2,6 +2,7 @@
 # This is the network script
 from platform import win32_edition
 from threading import local
+import einops
 from numpy import iterable
 import torch
 from torch import nn
@@ -149,8 +150,8 @@ class Deformer(ModelTemplate, nn.Module):
         )
 
     def forward(self, eeg, *args):
-        # eeg: (b, chan, time)
-        eeg = torch.unsqueeze(eeg, dim=1)  # (b, 1, chan, time)
+        # eeg: (b, time, chan)
+        eeg = einops.rearrange(eeg, "b t (f c) -> b f c t", f=1)
         x = self.cnn_encoder1(eeg)  # (b, num_kernel, 1, num_time)
 
         x = self.to_patch_embedding(x)
@@ -222,12 +223,14 @@ class Attention(nn.Module):
         if not self.symmetric_qk:
             qkv = self.to_qkv(x).chunk(3, dim=-1)
             q, k, v = map(
-                lambda t: rearrange(t, "b n (h d) -> b h n d", h=self.heads), qkv
+                lambda t: rearrange(
+                    t, "b n (h d) -> b h n d", h=self.heads), qkv
             )
             dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
         else:
             qv = self.to_qkv(x).chunk(2, dim=-1)
-            q, v = map(lambda t: rearrange(t, "b n (h d) -> b h n d", h=self.heads), qv)
+            q, v = map(lambda t: rearrange(
+                t, "b n (h d) -> b h n d", h=self.heads), qv)
             dots = torch.matmul(q, q.transpose(-1, -2)) * self.scale
 
         attn = torch.softmax(dots, dim=-1)
@@ -248,7 +251,8 @@ class Transformer(nn.Module):
             ),
             nn.BatchNorm1d(in_chan),
             nn.ELU(),
-            nn.MaxPool1d(kernel_size=2, stride=2) if use_max_pool else nn.Identity(),
+            nn.MaxPool1d(
+                kernel_size=2, stride=2) if use_max_pool else nn.Identity(),
         )
 
     def __init__(
@@ -263,7 +267,8 @@ class Transformer(nn.Module):
         self.time_attn_layers: Iterable = nn.ModuleList([])
         time_dim = dim
         for i in range(depth):
-            time_dim = time_dim if ((i % 2 == 0) and skip_pool) else int(time_dim * 0.5)
+            time_dim = time_dim if (
+                (i % 2 == 0) and skip_pool) else int(time_dim * 0.5)
             self.chan_attn_layers.append(
                 nn.ModuleList(
                     [
@@ -281,7 +286,8 @@ class Transformer(nn.Module):
                             kernel_size=config.temporal_kernel_size,
                             dp=config.dropout,
                             use_max_pool=(
-                                False if ((i % 2 == 0) and (skip_pool)) else True
+                                False if ((i % 2 == 0) and (
+                                    skip_pool)) else True
                             ),
                         ),
                         nn.LayerNorm(
