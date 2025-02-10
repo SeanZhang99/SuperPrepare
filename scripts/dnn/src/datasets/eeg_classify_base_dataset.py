@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from .classifyFilter import (
+from .classfy_filter import (
     get_classification_filter,
     ALLOWED_NUM_CLASS_INT,
     ALLOWED_NUM_CLASS_STRING,
@@ -39,16 +39,16 @@ class EegClassifyBaseDataset(EegDataset):
     ):
         assert (
             len(args) > 0 or "target" in kwargs
-        ), "target must be specified at the first positional argument or as a keyword argument"
+        ), "EEG_CLASSIFY_BASE_DATASET:META_FILTER_FUNC_PARSER:ASSERTION:INPUT_ARGUMENT_ERROR: target must be specified at the first positional argument or as a keyword argument"
         target = args[0] if len(args) > 0 else kwargs["target"]
 
         # Validate target is a valid argument
         assert (isinstance(target, int) and target in ALLOWED_NUM_CLASS_INT) or (
             isinstance(target, str) and target in ALLOWED_NUM_CLASS_STRING
-        ), f"target must be a valid integer from {ALLOWED_NUM_CLASS_INT} or a valid string from {ALLOWED_NUM_CLASS_STRING}"
+        ), f"EEG_CLASSIFY_BASE_DATASET:META_FILTER_FUNC_PARSER:ASSERTION:VALUE_ERROR: target must be a valid integer from {ALLOWED_NUM_CLASS_INT} or a valid string from {ALLOWED_NUM_CLASS_STRING}"
         assert isinstance(
             target, (int, str)
-        ), "target must be either an integer or a string"
+        ), "EEG_CLASSIFY_BASE_DATASET:META_FILTER_FUNC_PARSER:ASSERTION:TYPE_ERROR: target must be either an integer or a string"
 
         if meta_filter_func is None:
             meta_filter_func = get_classification_filter(target)

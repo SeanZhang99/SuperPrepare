@@ -8,7 +8,9 @@ import numpy
 from pydantic import BaseModel
 from torch.utils.data import Dataset
 
+
 from .metadata_processing import *
+from ..functional.get_function_caller import get_caller
 
 
 class CreateDatasetsInputConfig(BaseModel):
@@ -263,16 +265,21 @@ class EegDataset(Dataset):
                 segment_idx = idx - cumulative
                 return file_idx, segment_idx
             cumulative += num_segments
-        raise IndexError("Index out of range")
+        raise IndexError(
+            "EEG_DATASET:MAP_IDX_TO_FILE_AND_SEGMENT:INDEX_ERROR: After consuming all files, a valid file_idx and segment_idx pair was not found."
+        )
 
-    @staticmethod
-    def _validate_kwargs(kwargs: Iterable, required_keys: Iterable):
+        ticmethod
+
+    def _validate_kwargs(self, kwargs: Iterable, required_keys: Iterable):
         """
         验证 kwargs 是否包含所有必需的键。
         """
         for key in required_keys:
             if key not in kwargs:
-                raise KeyError(f"Missing required key '{key}' in kwargs.")
+                raise KeyError(
+                    f"EEG_DATASET:VALIDATE_KWARGS:KEY_ERROR: Missing required key '{key}' in kwargs {kwargs}. The function is called from {get_caller()}. You should go back to the caller function and check the kwargs to be validated"
+                )
 
 
 if __name__ == "__main__":

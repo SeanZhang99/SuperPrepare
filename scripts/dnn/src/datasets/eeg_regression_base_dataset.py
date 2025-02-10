@@ -5,7 +5,11 @@ from scipy.io import loadmat
 
 from .eeg_dataset import CreateDatasetsInputConfig, EegDataset
 from .metadata_processing import RegressionMetaDataElement
-from .regressionFilter import ALLOWED_SPEECH_FEATURES, get_regression_filter
+from .regression_filter import ALLOWED_SPEECH_FEATURES, get_regression_filter
+
+
+ENV_ALIASE = ["env", "envelope"]
+MEL_ALIASE = ["mel", "mel spectrum", "mfcc"]
 
 
 class EEGDatasetWithSpeechFeatureCreationConfig(CreateDatasetsInputConfig):
@@ -29,12 +33,14 @@ class EegRegressionBaseDataset(EegDataset):
 
         # 处理支持的语音特征别名
         feature_type = config.speech_feature_key.lower()
-        if feature_type in ["env", "envelope"]:
+        if feature_type in ENV_ALIASE:
             self.speech_feature_type = "env"
-        elif feature_type in ["mel", "mel spectrum", "mfcc"]:
+        elif feature_type in MEL_ALIASE:
             self.speech_feature_type = "mel"
         else:
-            raise ValueError(f"Unsupported speech feature: {feature_type}")
+            raise ValueError(
+                f"EEG_REGRESSION_BASE_DATASET:__INIT__:VALUE_ERROR: Unsupported speech feature: {feature_type}. Supported values are {ENV_ALIASE+MEL_ALIASE}."
+            )
 
     def __getitem__(self, idx):
         """
@@ -79,13 +85,13 @@ class EegRegressionBaseDataset(EegDataset):
     ):
         assert (
             len(args) > 0 or "target" in kwargs
-        ), "target must be specified at the first positional argument or as a keyword argument"
+        ), "EEG_REGRESSION_BASE_DATASET:META_FILTER_FUNC_PARSER:ASSERTION:INPUT_ARGUMENT_ERROR: target must be specified at the first positional argument or as a keyword argument"
         target = args[0] if len(args) > 0 else kwargs["target"]
 
         # Validate target is a valid argument
         assert (
             target in ALLOWED_SPEECH_FEATURES
-        ), f"target must be a valid value from ALLOWED_SPEECH_FEATURES: {ALLOWED_SPEECH_FEATURES}"
+        ), f"EEG_REGRESSION_BASE_DATASET:META_FILTER_FUNC_PARSER:ASSERTION:TARGET:VALUE_ERROR: target must be a valid value from ALLOWED_SPEECH_FEATURES: {ALLOWED_SPEECH_FEATURES}"
 
         if meta_filter_func is None:
             meta_filter_func = get_regression_filter(target)

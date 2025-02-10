@@ -33,18 +33,6 @@ MetaData: TypeAlias = dict[DatasetSubjectTrialEntry, MetaDataElement]
 CrossValidationEntry: TypeAlias = dict[FoldIndicator, list[DatasetSubjectTrialEntry]]
 
 
-# class LeaveOneGroupOutMethodInputConfig(BaseModel, extra="allow"):
-#     # This are the followings to validate
-#     metadata: MetaData
-#     fold_index: int
-#     n_folds: int
-#     seed: int
-
-#     # extra="allow" allows Pydantic to receive additonal unvalidated key-word parameters
-#     def parse(self):
-#         return self.metadata, self.fold_index, self.n_folds, self.seed
-
-
 class GroupingFunction(Protocol):
     def __call__(
         self,
@@ -74,14 +62,14 @@ class GroupingFunction(Protocol):
         for expected_param_name, expected_param_type in expected_params.items():
             if expected_param_name not in func_signature.parameters:
                 raise ValueError(
-                    f"Missing required parameter: {
+                    f"METADATA_PROCESSING:GROUPING_FUNCTION:VALIDATE:FUNCTION_SIGNATURE_VALIDATION:SIGNATURE_ERROR: Missing required parameter: {
                         expected_param_name}"
                 )
 
             func_param_type = func_signature.parameters[expected_param_name].annotation
             if func_param_type is inspect._empty:
                 raise TypeError(
-                    f"Parameter {
+                    f"METADATA_PROCESSING:GROUPING_FUNCTION:VALIDATE:FUNCTION_SIGNATURE_VALIDATION:ANNOTATION_ERROR: Parameter {
                         expected_param_name} must have a type annotation."
                 )
 
@@ -90,7 +78,7 @@ class GroupingFunction(Protocol):
                 and func_param_type not in expected_param_type
             ):
                 raise TypeError(
-                    f"Expected parameter {expected_param_name} to be {
+                    f"METADATA_PROCESSING:GROUPING_FUNCTION:VALIDATE:FUNCTION_SIGNATURE_VALIDATION:ANNOTATION_ERROR: Expected parameter {expected_param_name} to be {
                         expected_param_type}, but got {func_param_type}"
                 )
             # 验证类型是否匹配
@@ -126,7 +114,7 @@ class GroupingFunction(Protocol):
             pass
         else:
             raise TypeError(
-                f"Return value must be a dictionary, but got {type(result)}"
+                f"METADATA_PROCESSING:GROUPING_FUNCTION:VALIDATE:RETURN_VALIDATION:TYPE_ERROR: Return value must be a dictionary, but got {type(result)}"
             )
 
         return value
@@ -146,7 +134,6 @@ def leave_one_out_input_decorator(func) -> GroupingFunction:
 
 
 @leave_one_out_input_decorator
-# def loto(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
 def loto(
     metadata: MetaData, fold_index: int, n_folds: int, seed: int = 42, **kwargs: Any
 ) -> CrossValidationEntry:
@@ -193,11 +180,9 @@ def loto(
 
 
 @leave_one_out_input_decorator
-# def loso(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
 def loso(
     metadata: MetaData, fold_index: int, n_folds: int, seed: int = 42, **kwargs: Any
 ) -> CrossValidationEntry:
-    # metadata, fold_index, n_folds, seed = config.parse()
     random.seed(seed)
 
     dataset_subject_trials = {0: {0: []}}
@@ -242,11 +227,9 @@ def loso(
 
 
 @leave_one_out_input_decorator
-# def lodo(config: LeaveOneGroupOutMethodInputConfig) -> CrossValidationEntry:
 def lodo(
     metadata: MetaData, fold_index: int, n_folds: int, seed: int = 42, **kwargs: Any
 ) -> CrossValidationEntry:
-    # metadata, fold_index, n_folds, seed = config.parse()
     random.seed(seed)
 
     dataset_subject_trials = {0: {0: []}}

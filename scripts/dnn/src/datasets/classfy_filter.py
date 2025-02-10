@@ -172,7 +172,7 @@ def get_classification_filter(
             filter_func = eight_class_filter
         else:
             raise ValueError(
-                f"Invalid number of classes. The number of classes can be {ALLOWED_NUM_CLASS_STRING}."
+                f"CLASSIFIER_FILTER:GET_CLASSIFICATION:FILTER:STR_INPUT:VALUE_ERROR: Invalid number of classes. The number of classes can be {ALLOWED_NUM_CLASS_STRING}."
             )
     elif isinstance(num_class, int):
         if num_class == 2:
@@ -183,10 +183,10 @@ def get_classification_filter(
             filter_func = eight_class_filter
         else:
             raise ValueError(
-                f"Invalid number of classes. The number of classes can be {ALLOWED_NUM_CLASS_INT}."
+                f"CLASSIFIER_FILTER:GET_CLASSIFICATION_FILTER:INT_INPUT:VALUE_ERROR: nvalid number of classes. The number of classes can be {ALLOWED_NUM_CLASS_INT}."
             )
     else:
         raise TypeError(
-            "Invalid type for num_class. The number of classes can be an integer or a string."
+            f"CLASSIFER_FILTER:GET_CLASSIFICATION_FILTER:{str(type(input)).upper()}_INPUT:TYPE_ERROR: Invalid type for num_class. The number of classes can be an integer or a string."
         )
     return filter_func
