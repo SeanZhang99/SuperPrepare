@@ -2,7 +2,7 @@ import sys
 
 from lightning.pytorch.cli import LightningCLI
 
-from .taskConfigParser import TaskConfigParser
+from .task_config_parser import TaskConfigParser
 
 
 class MultiRunCLI:
@@ -11,7 +11,7 @@ class MultiRunCLI:
         self.task_config_path, self.cli_argv = self.__extract_task_config()
         assert (
             self.task_config_path is not None
-        ), "Task config is required by providing --task_config=<path> or --task_config <path>"
+        ), "MULTI_RUN_CLI:__INIT__:TASK_CONFIG_ACQUIRING:ARGUMENT_MISSING: Task config is required by providing --task_config=<path> or --task_config <path>"
         self.task_config_parser = TaskConfigParser(self.task_config_path)
         self.__run_cli()
 

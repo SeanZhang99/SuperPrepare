@@ -24,8 +24,8 @@ class EegClassifyDatasetWithSpectrum(EegClassifyBaseDataset):
         # 提取谱图
         spectrum = getattr(meta, self.spectrum_key, None)
         if spectrum is None:
-            raise ValueError(
-                f"Spectrum key '{self.spectrum_key}' not found in metadata for file {self.files[idx]}."
+            raise AttributeError(
+                f"EEG_CLASSIFY_DATASET_WITH_SPECTRUM:__GETITEM__:GETATTR:ATTRIBUTE_ERROIR: Spectrum key '{self.spectrum_key}' not found in metadata for file {self.files[idx]}."
             )
 
         return {"meta": meta, "exg": segment, "label": label, "spectrum": spectrum}

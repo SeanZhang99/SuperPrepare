@@ -41,5 +41,7 @@ def get_regression_filter(
     """
     filter_func = globals().get(f"{speech_feature}_filter")
     if filter_func is None:
-        raise ValueError(f"Invalid speech feature name: {speech_feature}")
+        raise ValueError(
+            f"REGRESSION_FILTER:GET_REGRESSION_FILTER:VALUE_ERROR: Invalid speech feature name: {speech_feature}"
+        )
     return filter_func
