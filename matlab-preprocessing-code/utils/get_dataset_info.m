@@ -7,12 +7,11 @@ arguments (Output)
 end
 dataset_infos = struct("filelists",[], ...
     "num_subject",[],"nch",[],"fs",[],"f_upper",[], ...
-    "num_trial",[],"desired_length",[],"audio_path",[],"base_path",[]);
+    "num_trial",[],"desired_length",[],"audio_path",[],"base_path",[],"channel_infos",[]);
 for dataset_name = dataset_names
     type = split(dataset_name,"_");
     type = type(2);
-    n_subject = [];
-    disp(['Processing dataset: ', dataset_name]);  % 打印当前处理的 dataset_name
+    num_subject = [];
     switch dataset_name
         case {"NJU_preprocessed"}
             base_path = "D:\EEG dataset\NJU\filter_zscore_asr_ica_no_eye_inspect";
@@ -27,15 +26,6 @@ for dataset_name = dataset_names
             channel = ["Cz"; "Fz"; "Fp1"; "F7"; "F3"; "FC1"; "C3"; "FC5"; "FT9"; "T7"; "CP5";
                 "CP1"; "P3"; "P7"; "PO9"; "O1"; "Pz"; "Oz"; "O2"; "PO10"; "P8"; "P4"; "CP2";
                 "CP6"; "T8"; "FT10"; "FC6"; "C4"; "FC2"; "F4"; "F8"; "Fp2"];
-        case "NJU_preproc"
-            base_path = "E:\EEG_RAW_DATA\NJU-15class-Emotiv-AAD\exg\preprocessed";
-            audio_path = "E:\EEG_RAW_DATA\NJU-15class-Emotiv-AAD\stimuli\";
-            fs = 128;
-            filelists = dir(fullfile(base_path,"S*.mat"));
-            nch = 32;
-            f_upper = 32;
-            num_trial = 32;
-            desired_length = 115 * fs;
         case {"KUL_raw","KUL_preprocessed"}
             base_path = "E:\EEG dataset\KUL";
             audio_path = "E:\EEG dataset\KUL\stimuli\stimuli";
@@ -45,18 +35,20 @@ for dataset_name = dataset_names
             f_upper = 64;
             num_trial = 20;
             desired_length = 1.2e4;
+            channel = [];
         case "Alices_raw"
-            base_path = "E:\EEG_RAW_DATA\BrennansAliceStory\aligned_eeg";
-            audio_path = "E:\EEG_RAW_DATA\BrennansAliceStory\audio\audio";
+            base_path = "E:\EEG_dataset_Superhuge\BrennansAliceStory\aligned_eeg";
+            audio_path = "E:\EEG_dataset_Superhuge\BrennansAliceStory\audio\audio";
             fs = 500;
             filelists = dir(fullfile(base_path,"S*.mat"));
-            nch = 60;
+            nch = 62;
             f_upper = 200;
             num_trial = 12;
-            desired_length = 28e3;
+            desired_length = 26e3;
+            channel = [];
         case {"sparKULee_raw","sparKULee_preprocessed"}
-            base_path = sprintf("E:\\EEG_RAW_DATA\\sparrKULee\\derivatives\\%s_eeg",type);
-            audio_path = "E:\EEG_RAW_DATA\sparrKULee\derivatives\preprocessed_stimuli";
+            base_path = sprintf("E:\\EEG_dataset_Superhuge\\sparrKULee\\sparrKULee\\derivatives\\%s_eeg",type);
+            audio_path = "E:\EEG_dataset_Superhuge\sparrKULee\sparrKULee\derivatives\preprocessed_stimuli";
             fs = 128;
             tmp_list = dir(fullfile(base_path,"sub-*","ses*"));
             f = fieldnames(tmp_list)';
@@ -69,9 +61,10 @@ for dataset_name = dataset_names
             end
             nch = 64;
             f_upper = 64;
-            num_trial = 10;
+            num_trial = 0;
             desired_length = 10e4;
-            n_subject = length(dir(fullfile(base_path,"sub-*")));
+            num_subject = length(dir(fullfile(base_path,"sub-*")));
+            channel = [];
         case "DTU_preprocessed"
             base_path = "E:\EEG dataset\DTU\DATA_preproc";
             audio_path = "";
@@ -86,7 +79,7 @@ for dataset_name = dataset_names
                 "P7"; "P9"; "PO7"; "PO3"; "O1"; "Iz"; "Oz"; "POz"; "Pz"; "CPz"; "Fpz"; "Fp2";
                 "AF8"; "AF4"; "AFz"; "Fz"; "F2"; "F4"; "F6"; "F8"; "FT8"; "FC6"; "FC4"; "FC2";
                 "FCz"; "Cz"; "C2"; "C4"; "C6"; "T8"; "TP8"; "CP6"; "CP4"; "CP2"; "P2"; "P4"; 
-                "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2"; "EXG1"; "EXG2";
+                "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2";
 ];
         case "MAD-EEG_preprocessed"
             base_path = "E:\\EEG dataset\\MAD-EEG\\madeeg_preprocessed.hdf5"
@@ -109,7 +102,6 @@ for dataset_name = dataset_names
             num_trial = 40;
             num_subject = 16;
             desired_length = 7680;
-            dataset_infos.filelists = filelists;
             channel = [
                 "Fpz"; "Fp1"; "Fp2"; "AF3"; "AF4"; "AF7"; "AF8"; "Fz"; "F1"; "F2"; 
                 "F3"; "F4"; "F5"; "F6"; "F7"; "F8"; "FCz"; "FC1"; "FC2"; "FC3"; 
@@ -120,7 +112,7 @@ for dataset_name = dataset_names
                 "HEOR"; "HEOL"; "VEOU"; "VEOL"
             ];
         case "Estart-2019_raw"
-            base_path = "E:\EEG_dataset_Superhuge\Estart_2019\eeg"
+            base_path = "E:\EEG_dataset_Superhuge\Estart_2019\eeg";
             audio_path = "E:\EEG_dataset_Superhuge\Estart_2019\audiobooks\audiobooks\fM";
             fs = 1000;
             filelists = dir(fullfile(base_path,"*.h5"));
@@ -129,7 +121,6 @@ for dataset_name = dataset_names
             desired_length = 140000;
             num_trial = 4;
             num_subject = 18;
-            dataset_infos.filelists = filelists;
             channel = [];
         case "Data-for-CS_preprocessed"
             base_path = "E:\EEG dataset\Data_for_CS 安徽大学\Data_for_CS\data_for_CS\audio_label";
@@ -139,7 +130,7 @@ for dataset_name = dataset_names
             nch = 32;
             f_upper = 64;
             num_trial = 4352;
-            number_subject = 8;
+            num_subject = 8;
             desired_length = 128;
         case "KUL-AV-GC_preprocessed"
             base_path = "E:\EEG dataset\KUL_AV_GC";
@@ -178,6 +169,12 @@ for dataset_name = dataset_names
         otherwise
             error("Unimplemented dataset %s",dataset_name)
     end
+    py_dict = py.dict();
+    for i = 1:length(channel)
+        channel_info = py.dict();
+        channel_info{'name'} = channel(i);
+        py_dict{int32(i)} = channel_info;
+    end
     nfile = length(filelists);
     dataset_infos(end).desired_length = desired_length;
     dataset_infos(end).f_upper = f_upper;
@@ -185,11 +182,11 @@ for dataset_name = dataset_names
     dataset_infos(end).fs = fs;
     dataset_infos(end).nch = nch;
     dataset_infos(end).num_trial = num_trial;
-    dataset_infos(end).num_subject = fastif(isempty(n_subject),nfile,n_subject);
+    dataset_infos(end).num_subject = fastif(isempty(num_subject),nfile,num_subject);
     dataset_infos(end).audio_path = audio_path;
     dataset_infos(end).base_path = base_path;
-    dataset_infos(end).channel = channel;  % 新增 channel 字段
+    dataset_infos(end).channel_infos = py_dict;
     dataset_infos(end+1) = struct("filelists",[], ...
     "num_subject",[],"nch",[],"fs",[],"f_upper",[], ...
-    "num_trial",[],"desired_length",[],"audio_path",[],"base_path",[],"channel",[]);
+    "num_trial",[],"desired_length",[],"audio_path",[],"base_path",[],"channel_infos",[]);
 end
