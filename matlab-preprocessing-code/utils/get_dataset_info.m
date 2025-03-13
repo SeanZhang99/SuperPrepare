@@ -1,6 +1,7 @@
-function dataset_infos = get_dataset_info(dataset_names)
+function dataset_infos = get_dataset_info(dataset_names,raw_path)
 arguments (Input)
     dataset_names (1,:) string
+    raw_path (1,1) string
 end
 arguments (Output)
     dataset_infos (:,1) struct
@@ -13,22 +14,22 @@ for dataset_name = dataset_names
     type = type(2);
     num_subject = [];
     switch dataset_name
-        case {"NJU_preprocessed"}
-            base_path = "D:\EEG dataset\NJU\filter_zscore_asr_ica_no_eye_inspect";
-            audio_path = "D:\EEG dataset\NJU\stimuli";
+        case {"NJU_raw","NJU_preprocessed"}
+            base_path = fullfile(raw_path,"NJU-15class-Emotiv-AAD","exg",type);
+            audio_path = fullfile(raw_path,"NJU-15class-Emotiv-AAD","stimuli");
             fs = 128;
             filelists = dir(fullfile(base_path,"S*.mat"));
             nch = 32;
             f_upper = 64;
             num_trial = 32;
-            num_subject = 17;
+            num_subject = 21;
             desired_length = 115 * fs;
             channel = ["Cz"; "Fz"; "Fp1"; "F7"; "F3"; "FC1"; "C3"; "FC5"; "FT9"; "T7"; "CP5";
                 "CP1"; "P3"; "P7"; "PO9"; "O1"; "Pz"; "Oz"; "O2"; "PO10"; "P8"; "P4"; "CP2";
                 "CP6"; "T8"; "FT10"; "FC6"; "C4"; "FC2"; "F4"; "F8"; "Fp2"];
         case {"KUL_raw","KUL_preprocessed"}
-            base_path = "E:\EEG dataset\KUL";
-            audio_path = "E:\EEG dataset\KUL\stimuli\stimuli";
+            base_path = fullfile(raw_path,"KUL","exg",type);
+            audio_path = fullfile(raw_path,"KUL","stimuli");
             fs = 128;
             filelists = dir(fullfile(base_path,"S*.mat"));
             nch = 64;
@@ -37,8 +38,8 @@ for dataset_name = dataset_names
             desired_length = 1.2e4;
             channel = [];
         case "Alices_raw"
-            base_path = "E:\EEG_dataset_Superhuge\BrennansAliceStory\aligned_eeg";
-            audio_path = "E:\EEG_dataset_Superhuge\BrennansAliceStory\audio\audio";
+            base_path = fullfile(raw_path,"BrennansAliceStory","aligned_eeg");
+            audio_path = fullfile(raw_path,"BrennansAliceStory","audio","audio");
             fs = 500;
             filelists = dir(fullfile(base_path,"S*.mat"));
             nch = 62;
@@ -47,8 +48,8 @@ for dataset_name = dataset_names
             desired_length = 26e3;
             channel = [];
         case {"sparKULee_raw","sparKULee_preprocessed"}
-            base_path = sprintf("E:\\EEG_dataset_Superhuge\\sparrKULee\\sparrKULee\\derivatives\\%s_eeg",type);
-            audio_path = "E:\EEG_dataset_Superhuge\sparrKULee\sparrKULee\derivatives\preprocessed_stimuli";
+            base_path = sprintf("%s\\sparrKULee\\derivatives\\%s_eeg",raw_path,type);
+            audio_path = sprintf("%s\\sparrKULee\\derivatives\\preprocessed_stimuli",raw_path);
             fs = 128;
             tmp_list = dir(fullfile(base_path,"sub-*","ses*"));
             f = fieldnames(tmp_list)';
@@ -66,7 +67,7 @@ for dataset_name = dataset_names
             num_subject = length(dir(fullfile(base_path,"sub-*")));
             channel = [];
         case "DTU_preprocessed"
-            base_path = "E:\EEG dataset\DTU\DATA_preproc";
+            base_path = fullfile(raw_path,"DTU","DATA_preproc");
             audio_path = "";
             fs = 64;
             filelists = dir(fullfile(base_path,"S*.mat"));
@@ -82,8 +83,8 @@ for dataset_name = dataset_names
                 "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2";
 ];
         case "MAD-EEG_preprocessed"
-            base_path = "E:\\EEG dataset\\MAD-EEG\\madeeg_preprocessed.hdf5"
-            audio_path = "E:\\EEG dataset\\MAD-EEG\\stimuli\\stimuli";
+            base_path = fullfile(raw_path,"MAD-EEG","madeeg_preprocessed.hdf5");
+            audio_path = fullfile(raw_path,"MAD-EEG","stimuli","stimuli");
             fs = 256;
             filelists = [1];
             nch = 20;
@@ -93,7 +94,7 @@ for dataset_name = dataset_names
             num_subject = 16;
             dataset_infos.filelists = filelists;
         case "PKU-4talker-EEG_preprocessed"
-            base_path = "E:\EEG dataset\PKU-4talker-EEG\preprocess_data\data_space";
+            base_path = fullfile(raw_path,"PKU-4talker-EEG","preprocess_data","data_space");
             audio_path = "";
             fs = 128;
             filelists = dir(fullfile(base_path, "sub*",'*cap.mat'));
@@ -112,8 +113,8 @@ for dataset_name = dataset_names
                 "HEOR"; "HEOL"; "VEOU"; "VEOL"
             ];
         case "Estart-2019_raw"
-            base_path = "E:\EEG_dataset_Superhuge\Estart_2019\eeg";
-            audio_path = "E:\EEG_dataset_Superhuge\Estart_2019\audiobooks\audiobooks\fM";
+            base_path = fullfile(raw_path,"Estart_2019","eeg");
+            audio_path = fullfile(raw_path,"Estart_2019","audiobooks","audiobooks","fM");
             fs = 1000;
             filelists = dir(fullfile(base_path,"*.h5"));
             nch = 63;
@@ -122,8 +123,8 @@ for dataset_name = dataset_names
             num_trial = 4;
             num_subject = 18;
             channel = [];
-        case "Data-for-CS_preprocessed"
-            base_path = "E:\EEG dataset\Data_for_CS 安徽大学\Data_for_CS\data_for_CS\audio_label";
+        case "AHU_preprocessed"
+            base_path = fullfile(raw_path,"AHU","audio-label");
             audio_path = "";
             fs = 128;
             filelists = dir(fullfile(base_path,"*.mat"));
@@ -133,8 +134,8 @@ for dataset_name = dataset_names
             num_subject = 8;
             desired_length = 128;
         case "KUL-AV-GC_preprocessed"
-            base_path = "E:\EEG dataset\KUL_AV_GC";
-            audio_path = "E:\EEG dataset\KUL_AV_GC";
+            base_path = fullfile(raw_path,"KUL_AV_GC");
+            audio_path = base_path;
             fs = 128;
             filelists = dir(fullfile(base_path,"*.mat"));
             nch = 68;
@@ -148,7 +149,7 @@ for dataset_name = dataset_names
                 "FC2"; "FCz"; "Cz"; "C2"; "C4"; "C6"; "T8"; "TP8"; "CP6"; "CP4"; "CP2"; "P2"; 
                 "P4"; "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2"; "EXG3"; "EXG4"; "EXG5"; "EXG6"];
         case "ASA_preprocessed"
-            base_path = "E:\EEG dataset\ASA";
+            base_path = fullfile(raw_path,"ASA");
             audio_path = "";
             fs = 128;
             filelists = dir(fullfile(base_path,"*.mat"));

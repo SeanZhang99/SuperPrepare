@@ -1,4 +1,4 @@
-function [subbandEnvelopes, combinedEnvelope] = calculateEnvelopeERBGammatone(signal, fs, numBands, p)
+function [combinedEnvelope, subbandEnvelopes] = calculateEnvelopeERBGammatone(signal, fs, numBands, p)
 % calculateEnvelopeERBGammatone
 % Computes subband envelopes and combined envelope using ERB-scaled Gammatone filters and power-law processing.
 %

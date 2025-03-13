@@ -1,21 +1,23 @@
-function trial_infos = extract_trials(data_struct,dataset_path,trial_idxs,subject_id,dataset_name,desired_length)
+function trial_data = extract_trials(data_struct,dataset_path,trial_idxs,subject_id,dataset_name,desired_length)
 %EXTRACT_TRIALS Summary of this function goes here
 %   Detailed explanation goes here
-trial_infos = struct("exg",[],"stimuli_path",[],"label",[],"env_path",[],"mel_path",[],"stimuli",[],"env",[],"mel",[],"stimuli_fs",[]);
+trial_data = struct();
 for trial_idx = trial_idxs
-    exg = NaN;
+    exg = nan;
     stimuli_path = "";
     compet_stimuli_path = "";
     label = "";
     env_path = "";
     compet_env_path = "";
     mel_path = "";
-    stimuli = [];
-    compet_stimuli = [];
-    env = [];
-    compet_env = [];
-    mel = [];
-    stimuli_fs = [];
+    compet_mel_path = "";
+    stimuli = nan;
+    compet_stimuli = nan;
+    env = nan;
+    compet_env = nan;
+    mel = nan;
+    compet_mel = nan;
+    stimuli_fs = nan;
     switch dataset_name
         case {"NJU_preprocessed"}
             if trial_idx <= length(data_struct.data.eeg)
@@ -75,7 +77,7 @@ for trial_idx = trial_idxs
         case "Estart-2019_raw"
                 exg = data_struct.group__fM.("part_"+num2str(trial_idx));
                 stimuli_path = "part_" + string(trial_idx) + "_story.wav";
-        case "Data-for-CS_preprocessed"
+        case "AHU_preprocessed"
                 exg = squeeze(data_struct.mergedStruct.data(trial_idx,:,:));
                 label =  string(data_struct.mergedStruct.label(trial_idx,:,:));
         case "KUL-AV-GC_preprocessed"
@@ -100,20 +102,27 @@ for trial_idx = trial_idxs
         otherwise
             error("Unimplemented dataset %s",dataset_name)
     end
-    trial_infos(end).exg = exg;
-    trial_infos(end).stimuli_path = stimuli_path;
-    trial_infos(end).compet_stimuli_path = compet_stimuli_path;
-    trial_infos(end).label = string(label);
-    trial_infos(end).env_path = env_path;
-    trial_infos(end).compet_env_path = compet_env_path;
-    trial_infos(end).mel_path = mel_path;
-    trial_infos(end).stimuli = stimuli;
-    trial_infos(end).compet_stimuli = compet_stimuli;
-    trial_infos(end).env = env;
-    trial_infos(end).compet_env = compet_env;
-    trial_infos(end).mel = mel;
-    trial_infos(end).stimuli_fs = stimuli_fs;
-    trial_infos(end+1) = struct("exg",[],"stimuli_path",[],"compet_stimuli_path",[],"label",[],"env_path",[],"compet_env_path",[],"mel_path",[],"stimuli",[],"compet_stimuli",[],"env",[],"compet_env",[],"mel",[],"stimuli_fs",[]);
+    trial_data(end).exg = exg;
+    trial_data(end).stimuli_path = stimuli_path;
+    trial_data(end).compet_stimuli_path = string(compet_stimuli_path);
+    trial_data(end).label = string(label);
+    trial_data(end).env_path = env_path;
+    trial_data(end).compet_env_path = string(compet_env_path);
+    trial_data(end).mel_path = mel_path;
+    trial_data(end).compet_mel_path = compet_mel_path;
+    trial_data(end).stimuli = stimuli;
+    trial_data(end).compet_stimuli = compet_stimuli;
+    trial_data(end).env = env;
+    trial_data(end).compet_env = compet_env;
+    trial_data(end).mel = mel;
+    trial_data(end).compet_mel = compet_mel;
+    trial_data(end).stimuli_fs = stimuli_fs;
+    trial_data(end+1) = struct("exg",[],...
+        "stimuli_path",[],"compet_stimuli_path",[],"stimuli",[],"compet_stimuli",[],...
+        "stimuli_fs",[],...
+        "label",[],...
+        "env_path",[],"compet_env_path",[],"env",[],"compet_env",[],...
+        "mel_path",[],"compet_mel_path",[],"mel",[],"compet_mel",[]);
 end
 end
 
