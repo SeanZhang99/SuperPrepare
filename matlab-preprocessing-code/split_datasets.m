@@ -10,10 +10,10 @@ for dataset_id = progress(1:length(dataset_names))
     dataset_name = dataset_names(dataset_id);
     dataset_info = dataset_infos(dataset_id);
     fs = dataset_info.fs;
-    for subject_id = progress(1:fastif(DEBUG_MODE,4,dataset_info.num_subject))
+    for subject_id = progress(1:fastif(DEBUG_MODE,1,dataset_info.num_subject))
         data_struct = load_data_struct(fullfile(dataset_info.filelists(subject_id).folder,dataset_info.filelists(subject_id).name),dataset_name);
         num_trial = get_num_trials(dataset_name, subject_id, dataset_info);
-        for trial_id = 1:fastif(DEBUG_MODE,4,num_trial)
+        for trial_id = 1:fastif(DEBUG_MODE,1,num_trial)
             %% get trial info
             entry = sprintf("dataset-%03d-subject-%03d-trial-%03d",dataset_id,subject_id,trial_id);
             trial_data = extract_trials(data_struct,dataset_info.base_path,trial_id,subject_id,dataset_name,[]);
@@ -21,6 +21,12 @@ for dataset_id = progress(1:length(dataset_names))
 
             exg = trial_data.exg;
             label = trial_data.label;
+
+            if DEBUG_MODE && subject_id == 1 && trial_id == 1
+                plot(exg)
+                keyboard
+                close all
+            end
 
             stimuli_path = trial_data.stimuli_path;
             compet_stimuli_path = trial_data.compet_stimuli_path;
@@ -108,7 +114,7 @@ for dataset_id = progress(1:length(dataset_names))
                 % available.
                 tmp = [];
                 for ii = 1:size(stimuli,2)
-                    tmp(:,ii) = calculateEnvelopeERBGammatone(stimuli(:,ii),stimuli_fs,15,.3);
+                    tmp(:,ii) = calculateEnvelopeERBGammatone(stimuli(:,ii),stimuli_fs,env_gmt_freq_range,env_gmt_num_bands,env_gmt_plaw);
                 end
                 env = tmp;
             end
@@ -190,7 +196,8 @@ for dataset_id = progress(1:length(dataset_names))
             end
             clearvars("-except","data_struct","dataset_id","dataset_info","dataset_infos","dataset_name","dataset_names",...
                 "DEBUG_MODE","ENVELOPE_OVERRIDE","EXG_OVERRIDE","exg_path","fs","MEL_SPECTRUM_OVERRIDE","metadata",...
-                "num_trial","OVERRIDE_ALL","raw_path","save_path","STIMULI_OVERRIDE","subject_id","wav_path");
+                "num_trial","OVERRIDE_ALL","raw_path","save_path","STIMULI_OVERRIDE","subject_id","wav_path",...
+                "env_gmt_freq_range","env_gmt_num_bands","env_gmt_plaw");
             clearvars("trial_id","trial_info",...
                 "exg","label",...
                 "stimuli_path","compet_stimuli_path",...

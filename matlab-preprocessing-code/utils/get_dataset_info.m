@@ -82,17 +82,6 @@ for dataset_name = dataset_names
                 "FCz"; "Cz"; "C2"; "C4"; "C6"; "T8"; "TP8"; "CP6"; "CP4"; "CP2"; "P2"; "P4"; 
                 "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2";
 ];
-        case "MAD-EEG_preprocessed"
-            base_path = fullfile(raw_path,"MAD-EEG","madeeg_preprocessed.hdf5");
-            audio_path = fullfile(raw_path,"MAD-EEG","stimuli","stimuli");
-            fs = 256;
-            filelists = [1];
-            nch = 20;
-            f_upper = 128;
-            desired_length = 5052;
-            num_trial = 22;
-            num_subject = 16;
-            dataset_infos.filelists = filelists;
         case "PKU-4talker-EEG_preprocessed"
             base_path = fullfile(raw_path,"PKU-4talker-EEG","preprocess_data","data_space");
             audio_path = "";
