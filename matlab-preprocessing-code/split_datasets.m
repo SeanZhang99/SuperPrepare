@@ -53,6 +53,7 @@ for dataset_id = progress(1:length(dataset_names))
                 break
             end
             exg = exg(:,dataset_info.channel_indices);
+            assert(all(std(exg,1)>=eps),"Low standard deviation found\n")
             % save exg to file
             if EXG_OVERRIDE || ~exist(fullfile(exg_path,sprintf("%s.npy",entry)),"file")
                 if fs ~= common_fs
