@@ -6,9 +6,10 @@ end
 arguments (Output)
     dataset_infos (:,1) struct
 end
-dataset_infos = struct("filelists",[], ...
-    "num_subject",[],"nch",[],"fs",[],"f_upper",[], ...
+empty_struct = struct("filelists",[], ...
+    "num_subject",[],"nch",[],"channel_indices",[],"fs",[],"f_upper",[], ...
     "num_trial",[],"desired_length",[],"audio_path",[],"base_path",[],"channel_infos",[]);
+dataset_infos = empty_struct;
 for dataset_name = dataset_names
     type = split(dataset_name,"_");
     type = type(2);
@@ -19,7 +20,7 @@ for dataset_name = dataset_names
             audio_path = fullfile(raw_path,"NJU-15class-Emotiv-AAD","stimuli");
             fs = 128;
             filelists = dir(fullfile(base_path,"S*.mat"));
-            nch = 32;
+            channel_indices = 1:32;
             f_upper = 64;
             num_trial = 32;
             num_subject = 21;
@@ -32,7 +33,7 @@ for dataset_name = dataset_names
             audio_path = fullfile(raw_path,"KUL","stimuli");
             fs = 128;
             filelists = dir(fullfile(base_path,"S*.mat"));
-            nch = 64;
+            channel_indices = 1:64;
             f_upper = 64;
             num_trial = 20;
             desired_length = 1.2e4;
@@ -42,7 +43,7 @@ for dataset_name = dataset_names
             audio_path = fullfile(raw_path,"BrennansAliceStory","audio","audio");
             fs = 500;
             filelists = dir(fullfile(base_path,"S*.mat"));
-            nch = 62;
+            channel_indices = 1:62;
             f_upper = 200;
             num_trial = 12;
             desired_length = 26e3;
@@ -60,7 +61,7 @@ for dataset_name = dataset_names
                     filelists(end+1) = tmp_list(ff);
                 end
             end
-            nch = 64;
+            channel_indices = 1:64;
             f_upper = 64;
             num_trial = 0;
             desired_length = 10e4;
@@ -71,7 +72,7 @@ for dataset_name = dataset_names
             audio_path = "";
             fs = 64;
             filelists = dir(fullfile(base_path,"S*.mat"));
-            nch = 64;
+            channel_indices = 1:64;
             f_upper = 32;
             desired_length = 3200;
             num_trial = 60;
@@ -80,14 +81,14 @@ for dataset_name = dataset_names
                 "P7"; "P9"; "PO7"; "PO3"; "O1"; "Iz"; "Oz"; "POz"; "Pz"; "CPz"; "Fpz"; "Fp2";
                 "AF8"; "AF4"; "AFz"; "Fz"; "F2"; "F4"; "F6"; "F8"; "FT8"; "FC6"; "FC4"; "FC2";
                 "FCz"; "Cz"; "C2"; "C4"; "C6"; "T8"; "TP8"; "CP6"; "CP4"; "CP2"; "P2"; "P4"; 
-                "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2"; "EXG1"; "EXG2"
-];
+                "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2";
+            ];
         case "PKU-4talker-EEG_preprocessed"
             base_path = fullfile(raw_path,"PKU-4talker-EEG","preprocess_data","data_space");
             audio_path = "";
             fs = 128;
             filelists = dir(fullfile(base_path, "sub*",'*cap.mat'));
-            nch = 64;
+            channel_indices = 59;
             f_upper = 64;
             num_trial = 40;
             num_subject = 16;
@@ -98,15 +99,14 @@ for dataset_name = dataset_names
                 "FC4"; "FC5"; "FC6"; "FT7"; "FT8"; "Cz"; "C1"; "C2"; "C3"; "C4"; 
                 "C5"; "C6"; "T7"; "T8"; "CP1"; "CP2"; "CP3"; "CP4"; "CP5"; "CP6"; 
                 "TP7"; "TP8"; "Pz"; "P3"; "P4"; "P5"; "P6"; "P7"; "P8"; "POz"; 
-                "PO3"; "PO4"; "PO5"; "PO6"; "PO7"; "PO8"; "Oz"; "O1"; "O2"; "ECG"; 
-                "HEOR"; "HEOL"; "VEOU"; "VEOL"
+                "PO3"; "PO4"; "PO5"; "PO6"; "PO7"; "PO8"; "Oz"; "O1"; "O2"; 
             ];
         case "Estart-2019_raw"
             base_path = fullfile(raw_path,"Estart_2019","eeg");
             audio_path = fullfile(raw_path,"Estart_2019","audiobooks","audiobooks","fM");
             fs = 1000;
             filelists = dir(fullfile(base_path,"*.h5"));
-            nch = 63;
+            channel_indices = 1:63;
             f_upper = 128;
             desired_length = 140000;
             num_trial = 4;
@@ -117,7 +117,7 @@ for dataset_name = dataset_names
             audio_path = "";
             fs = 128;
             filelists = dir(fullfile(base_path,"*.mat"));
-            nch = 32;
+            channel_indices = 1:32;
             f_upper = 64;
             num_trial = 4352;
             num_subject = 8;
@@ -127,7 +127,7 @@ for dataset_name = dataset_names
             audio_path = base_path;
             fs = 128;
             filelists = dir(fullfile(base_path,"*.mat"));
-            nch = 68;
+            channel_indices = 1:64;
             f_upper = 64;
             num_trial = 6;
             desired_length = 76800;
@@ -136,25 +136,25 @@ for dataset_name = dataset_names
                 "P5"; "P7"; "P9"; "PO7"; "PO3"; "O1"; "Iz"; "Oz"; "POz"; "Pz"; "CPz"; "Fpz"; 
                 "Fp2"; "AF8"; "AF4"; "AFz"; "Fz"; "F2"; "F4"; "F6"; "F8"; "FT8"; "FC6"; "FC4";
                 "FC2"; "FCz"; "Cz"; "C2"; "C4"; "C6"; "T8"; "TP8"; "CP6"; "CP4"; "CP2"; "P2"; 
-                "P4"; "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2"; "EXG3"; "EXG4"; "EXG5"; "EXG6"];
+                "P4"; "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2"];
         case "ASA_preprocessed"
             base_path = fullfile(raw_path,"ASA");
             audio_path = "";
             fs = 128;
             filelists = dir(fullfile(base_path,"*.mat"));
-            nch = 64;
+            channel_indices = 64;
             f_upper = 64;
             num_trial = 20;
             desired_length = 7299;
             channel = [
-    "Fp1"; "Fp2"; "F3"; "F4"; "C3"; "C4"; "P3"; "P4"; "O1"; "O2"; 
-    "F7"; "F8"; "T7"; "T8"; "P7"; "P8"; "Fz"; "Cz"; "Pz"; "Oz"; 
-    "FC1"; "FC2"; "CP1"; "CP2"; "FC5"; "FC6"; "CP5"; "CP6"; "TP9"; "TP10"; 
-    "POz"; "F1"; "F2"; "C1"; "C2"; "P1"; "P2"; "AF3"; "AF4"; "FC3"; "FC4"; 
-    "CP3"; "CP4"; "PO3"; "PO4"; "F5"; "F6"; "C5"; "C6"; "P5"; "P6"; 
-    "AF7"; "AF8"; "FT7"; "FT8"; "TP7"; "TP8"; "PO7"; "PO8"; "FT9"; "FT10"; 
-    "Fpz"; "CPz"; "FCz"
-];
+                "Fp1"; "Fp2"; "F3"; "F4"; "C3"; "C4"; "P3"; "P4"; "O1"; "O2"; 
+                "F7"; "F8"; "T7"; "T8"; "P7"; "P8"; "Fz"; "Cz"; "Pz"; "Oz"; 
+                "FC1"; "FC2"; "CP1"; "CP2"; "FC5"; "FC6"; "CP5"; "CP6"; "TP9"; "TP10"; 
+                "POz"; "F1"; "F2"; "C1"; "C2"; "P1"; "P2"; "AF3"; "AF4"; "FC3"; "FC4"; 
+                "CP3"; "CP4"; "PO3"; "PO4"; "F5"; "F6"; "C5"; "C6"; "P5"; "P6"; 
+                "AF7"; "AF8"; "FT7"; "FT8"; "TP7"; "TP8"; "PO7"; "PO8"; "FT9"; "FT10"; 
+                "Fpz"; "CPz"; "FCz"
+            ];
 
         otherwise
             error("Unimplemented dataset %s",dataset_name)
@@ -170,13 +170,12 @@ for dataset_name = dataset_names
     dataset_infos(end).f_upper = f_upper;
     dataset_infos(end).filelists = filelists;
     dataset_infos(end).fs = fs;
-    dataset_infos(end).nch = nch;
+    dataset_infos(end).channel_indices = channel_indices;
+    dataset_infos(end).nch = numel(channel_indices);
     dataset_infos(end).num_trial = num_trial;
     dataset_infos(end).num_subject = fastif(isempty(num_subject),nfile,num_subject);
     dataset_infos(end).audio_path = audio_path;
     dataset_infos(end).base_path = base_path;
     dataset_infos(end).channel_infos = py_dict;
-    dataset_infos(end+1) = struct("filelists",[], ...
-    "num_subject",[],"nch",[],"fs",[],"f_upper",[], ...
-    "num_trial",[],"desired_length",[],"audio_path",[],"base_path",[],"channel_infos",[]);
+    dataset_infos(end+1) = empty_struct;
 end
