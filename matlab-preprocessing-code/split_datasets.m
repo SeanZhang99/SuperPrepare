@@ -10,7 +10,7 @@ for dataset_id = progress(1:length(dataset_names))
     dataset_name = dataset_names(dataset_id);
     dataset_info = dataset_infos(dataset_id);
     fs = dataset_info.fs;
-    for subject_id = progress(1:fastif(DEBUG_MODE,12,dataset_info.num_subject))
+    for subject_id = progress(1:fastif(DEBUG_MODE,1,dataset_info.num_subject))
         data_struct = load_data_struct(fullfile(dataset_info.filelists(subject_id).folder,dataset_info.filelists(subject_id).name),dataset_name);
         num_trial = get_num_trials(dataset_name, subject_id, dataset_info);
         for trial_id = 1:fastif(DEBUG_MODE,1,num_trial)
@@ -93,7 +93,7 @@ for dataset_id = progress(1:length(dataset_names))
 
             stimuli_is_available = stimuli_path~=""&&~isempty(stimuli);
 
-            if STIMULI_OVERRIDE || ~exist(stimuli_path,"file")
+            if stimuli_path ~= "" && (STIMULI_OVERRIDE || ~exist(stimuli_path,"file"))
                 py.numpy.save(stimuli_path,py.numpy.array(stimuli));
             end
 
@@ -128,7 +128,7 @@ for dataset_id = progress(1:length(dataset_names))
             if ~isnan(env)
                 env_path = fullfile(wav_path,"env",sprintf("%s_env.npy",entry));
             end
-            if ENVELOPE_OVERRIDE || ~exist(env_path,"file")
+            if env_path ~= "" && (ENVELOPE_OVERRIDE || ~exist(env_path,"file"))
                 py.numpy.save(env_path,py.numpy.array(env));
             end
             %% processing mel spectrum
@@ -163,7 +163,7 @@ for dataset_id = progress(1:length(dataset_names))
             if ~isnan(mel)
                 mel_path = fullfile(wav_path,"mel",sprintf("%s_mel.npy",entry));
             end
-            if MEL_SPECTRUM_OVERRIDE || ~exist(mel_path,"file")
+            if mel_path ~= "" && (MEL_SPECTRUM_OVERRIDE || ~exist(mel_path,"file"))
                 py.numpy.save(mel_path,py.numpy.array(mel));
             end
 
@@ -203,7 +203,7 @@ for dataset_id = progress(1:length(dataset_names))
             clearvars("-except","data_struct","dataset_id","dataset_info","dataset_infos","dataset_name","dataset_names",...
                 "DEBUG_MODE","ENVELOPE_OVERRIDE","EXG_OVERRIDE","exg_path","fs","MEL_SPECTRUM_OVERRIDE","metadata",...
                 "num_trial","OVERRIDE_ALL","raw_path","save_path","STIMULI_OVERRIDE","subject_id","wav_path",...
-                "env_gmt_freq_range","env_gmt_num_bands","env_gmt_plaw");
+                "env_gmt_freq_range","env_gmt_num_bands","env_gmt_plaw","common_fs");
             clearvars("trial_id","trial_info",...
                 "exg","label",...
                 "stimuli_path","compet_stimuli_path",...
