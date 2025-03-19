@@ -68,7 +68,7 @@ for dataset_name = dataset_names
             num_subject = length(dir(fullfile(base_path,"sub-*")));
             channel = [];
         case "DTU_preprocessed"
-            base_path = fullfile(raw_path,"DTU","DATA_preproc");
+            base_path = fullfile(raw_path,"DTU","preprocessed/");
             audio_path = "";
             fs = 64;
             filelists = dir(fullfile(base_path,"S*.mat"));

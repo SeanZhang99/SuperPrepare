@@ -10,10 +10,10 @@ for dataset_id = progress(1:length(dataset_names))
     dataset_name = dataset_names(dataset_id);
     dataset_info = dataset_infos(dataset_id);
     fs = dataset_info.fs;
-    for subject_id = progress(1:fastif(DEBUG_MODE,1,dataset_info.num_subject))
+    for subject_id = progress(fastif(DEBUG_MODE,1:4,1:dataset_info.num_subject))
         data_struct = load_data_struct(fullfile(dataset_info.filelists(subject_id).folder,dataset_info.filelists(subject_id).name),dataset_name);
         num_trial = get_num_trials(dataset_name, subject_id, dataset_info);
-        for trial_id = 1:fastif(DEBUG_MODE,1,num_trial)
+        for trial_id = fastif(DEBUG_MODE,1:4,1:num_trial)
             %% get trial info
             entry = sprintf("dataset-%03d-subject-%03d-trial-%03d",dataset_id,subject_id,trial_id);
             trial_data = extract_trials(data_struct,dataset_info.base_path,trial_id,subject_id,dataset_name,[]);
@@ -23,9 +23,9 @@ for dataset_id = progress(1:length(dataset_names))
             label = trial_data.label;
 
             if DEBUG_MODE && subject_id == 1 && trial_id == 1
-                plot(exg)
-                keyboard
-                close all
+                % plot(exg)
+                % keyboard
+                % close all
             end
 
             stimuli_path = trial_data.stimuli_path;
@@ -53,13 +53,8 @@ for dataset_id = progress(1:length(dataset_names))
                 break
             end
             exg = exg(:,dataset_info.channel_indices);
-            assert(all(std(exg,1)>=eps),"Low standard deviation found\n")
-            % save exg to file
-            if EXG_OVERRIDE || ~exist(fullfile(exg_path,sprintf("%s.npy",entry)),"file")
-                if fs ~= common_fs
-                    exg = resample(exg,common_fs,fs);
-                end
-                py.numpy.save(fullfile(exg_path,sprintf("%s.npy",entry)),py.numpy.array(exg));
+            if fs ~= common_fs
+                exg = resample(exg,common_fs,fs);
             end
 
             %% processing stimuli
@@ -94,9 +89,11 @@ for dataset_id = progress(1:length(dataset_names))
             end
 
             stimuli_is_available = stimuli_path~=""&&~isempty(stimuli);
-
-            if stimuli_path ~= "" && (STIMULI_OVERRIDE || ~exist(stimuli_path,"file"))
-                py.numpy.save(stimuli_path,py.numpy.array(stimuli));
+            if stimuli_is_available
+                if ~isnan(stimuli_fs) && stimuli_fs == 44100
+                    stimuli = resample(stimuli,16000,stimuli_fs);
+                    stimuli_fs = 16000;
+                end
             end
 
             %% processing envelope
@@ -117,22 +114,18 @@ for dataset_id = progress(1:length(dataset_names))
                 if fs ~= common_fs
                     env = resample(env,common_fs,fs);
                 end
-            elseif stimuli_is_available
+            end
+            if stimuli_is_available
                 % although envelope is not directly provided, stimuli is
                 % available.
                 tmp = [];
                 for ii = 1:size(stimuli,2)
-                    tmp(:,ii) = calculateEnvelopeERBGammatone(stimuli(:,ii),stimuli_fs,env_gmt_freq_range,env_gmt_num_bands,env_gmt_plaw);
+                    tmp(:,ii) = sum(calculateEnvelopeERBGammatone(stimuli(:,ii),stimuli_fs,env_gmt_freq_range,env_gmt_num_bands,env_gmt_plaw),2);
                 end
                 env = resample(tmp,common_fs,stimuli_fs);
             end
 
-            if ~isnan(env)
-                env_path = fullfile(wav_path,"env",sprintf("%s_env.npy",entry));
-            end
-            if env_path ~= "" && (ENVELOPE_OVERRIDE || ~exist(env_path,"file"))
-                py.numpy.save(env_path,py.numpy.array(env));
-            end
+
             %% processing mel spectrum
             if mel_path ~= ""
                 mel = load_stimuli(dataset_info.audio_path,mel_path);
@@ -162,6 +155,99 @@ for dataset_id = progress(1:length(dataset_names))
                 mel = tmp;
             end
 
+            %% detect if stimuli/envelope/mel is zero. remove those silent trailing. also remove unaligned segments
+            if contains(dataset_name,"NJU")
+                starting_time_step = (length(env)-length(exg))/common_fs;
+                env = env(starting_time_step*common_fs+1:end,:);
+                mel = mel(starting_time_step*common_fs+1:end,:);
+                stimuli = stimuli(starting_time_step*stimuli_fs+1:end,:);
+            else
+                trim_length = length(exg);
+                if ~isnan(env)
+                    trim_length = min([trim_length,length(env)]);
+                end
+                if ~isnan(mel)
+                    trim_length = min([trim_length,length(mel)]);
+                end
+                if ~isnan(stimuli)
+                    trim_length = min([trim_length,length(stimuli)/stimuli_fs*common_fs]);
+                end
+                exg = exg(1:trim_length,:);
+                if ~isnan(env)
+                    env = env(1:trim_length,:);
+                end
+                if ~isnan(mel)
+                    mel = mel(1:trim_length,:,:);
+                end
+                if ~isnan(stimuli)
+                    stimuli = stimuli(1:trim_length/common_fs*stimuli_fs,:);
+                end
+            end
+
+            silent_idx = zeros(length(exg),1);
+            if ~isnan(stimuli)
+                stimuli_silent_idx = detect_silent_tailing(stimuli,silent_env_threshold,stimuli_fs);
+                stimuli_silent_idx = stimuli_silent_idx(floor(linspace(1,length(stimuli),length(exg))));
+                stimuli_silent_idx = to_column_vector(stimuli_silent_idx);
+                silent_idx = silent_idx | stimuli_silent_idx;
+            end
+            if ~isnan(env)
+                env_silent_idx = detect_silent_tailing(env,silent_env_threshold,common_fs);
+                env_silent_idx = to_column_vector(env_silent_idx);
+                silent_idx = silent_idx | env_silent_idx;
+            end
+            if ~isnan(mel)
+                mel_silent_idx = detect_silent_tailing(mel,silent_mel_threshold,common_fs);
+                mel_silent_idx = to_column_vector(mel_silent_idx);
+                silent_idx = silent_idx | mel_silent_idx;
+            end
+
+            exg = exg(~silent_idx,:);
+
+            if ~isnan(env)
+                env = env(~silent_idx,:);
+            end
+
+            if ~isnan(mel)
+                mel = mel(~silent_idx,:);
+            end
+
+            if ~isnan(stimuli)
+                stimuli_silent_idx = repmat(silent_idx,[1,stimuli_fs/common_fs])';
+                stimuli_silent_idx = reshape(stimuli_silent_idx,[],1);
+    
+                stimuli = stimuli(~stimuli_silent_idx,:);
+            end
+
+            if ~isnan(env)
+                assert(length(exg)==length(env))
+            end
+            if ~isnan(mel)
+                assert(length(exg)==length(mel))
+            end
+            if ~isnan(stimuli)
+                assert(length(exg)==(length(stimuli)/stimuli_fs*common_fs))
+            end
+            %% saving eeg/env/mel to files
+            % save exg to file
+            if EXG_OVERRIDE || ~exist(fullfile(exg_path,sprintf("%s.npy",entry)),"file")
+                py.numpy.save(fullfile(exg_path,sprintf("%s.npy",entry)),py.numpy.array(exg));
+            end
+
+            % save stimuli
+            if stimuli_path ~= "" && (STIMULI_OVERRIDE || ~exist(stimuli_path,"file"))
+                py.numpy.save(stimuli_path,py.numpy.array(stimuli));
+            end
+
+            % save env to file
+            if ~isnan(env)
+                env_path = fullfile(wav_path,"env",sprintf("%s_env.npy",entry));
+            end
+            if env_path ~= "" && (ENVELOPE_OVERRIDE || ~exist(env_path,"file"))
+                py.numpy.save(env_path,py.numpy.array(env));
+            end
+
+            % save mel to fule
             if ~isnan(mel)
                 mel_path = fullfile(wav_path,"mel",sprintf("%s_mel.npy",entry));
             end
@@ -202,18 +288,15 @@ for dataset_id = progress(1:length(dataset_names))
             else
                 metadata{entry}{"mel"}=py.int(0);
             end
-            clearvars("-except","data_struct","dataset_id","dataset_info","dataset_infos","dataset_name","dataset_names",...
-                "DEBUG_MODE","ENVELOPE_OVERRIDE","EXG_OVERRIDE","exg_path","fs","MEL_SPECTRUM_OVERRIDE","metadata",...
-                "num_trial","OVERRIDE_ALL","raw_path","save_path","STIMULI_OVERRIDE","subject_id","wav_path",...
-                "env_gmt_freq_range","env_gmt_num_bands","env_gmt_plaw","common_fs");
             clearvars("trial_id","trial_info",...
                 "exg","label",...
-                "stimuli_path","compet_stimuli_path",...
+                "stimuli_path","compet_stimuli_path","silent_idx","skipsampling_silent_idx",...
                 "env_path","compet_env_path",...
                 "mel_path","compet_mel_path",...
                 "stimuli","compet_stimuli","stimuli_fs",...
-                "env","compet_env",...
-                "mel","compet_mel")
+                "env","compet_env","env_silent_idx",...
+                "mel","compet_mel","mel_silent_idx",...
+                "starting_time_step");
         end
     end
 end
