@@ -20,7 +20,6 @@ for dataset_id = progress(1:length(dataset_names))
             trial_data = trial_data(1);
 
             exg = trial_data.exg;
-            exg = exg(:,dataset_info.channel_indices);
             label = trial_data.label;
 
             if DEBUG_MODE && subject_id == 1 && trial_id == 1
@@ -53,6 +52,7 @@ for dataset_id = progress(1:length(dataset_names))
                 % trial index exceed
                 break
             end
+            exg = exg(:,dataset_info.channel_indices);
             % save exg to file
             if EXG_OVERRIDE || ~exist(fullfile(exg_path,sprintf("%s.npy",entry)),"file")
                 if fs ~= common_fs
