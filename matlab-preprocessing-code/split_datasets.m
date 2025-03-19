@@ -10,7 +10,7 @@ for dataset_id = progress(1:length(dataset_names))
     dataset_name = dataset_names(dataset_id);
     dataset_info = dataset_infos(dataset_id);
     fs = dataset_info.fs;
-    for subject_id = progress(1:fastif(DEBUG_MODE,1,dataset_info.num_subject))
+    for subject_id = progress(1:fastif(DEBUG_MODE,12,dataset_info.num_subject))
         data_struct = load_data_struct(fullfile(dataset_info.filelists(subject_id).folder,dataset_info.filelists(subject_id).name),dataset_name);
         num_trial = get_num_trials(dataset_name, subject_id, dataset_info);
         for trial_id = 1:fastif(DEBUG_MODE,1,num_trial)
@@ -54,6 +54,9 @@ for dataset_id = progress(1:length(dataset_names))
             end
             % save exg to file
             if EXG_OVERRIDE || ~exist(fullfile(exg_path,sprintf("%s.npy",entry)),"file")
+                if fs ~= common_fs
+                    exg = resample(exg,common_fs,fs);
+                end
                 py.numpy.save(fullfile(exg_path,sprintf("%s.npy",entry)),py.numpy.array(exg));
             end
 
@@ -109,6 +112,9 @@ for dataset_id = progress(1:length(dataset_names))
                 elseif ~isnan(compet_env)
                     env(:,end+size(compet_env,2)) = to_column_vector(compet_env);
                 end
+                if fs ~= common_fs
+                    env = resample(env,common_fs,fs);
+                end
             elseif stimuli_is_available
                 % although envelope is not directly provided, stimuli is
                 % available.
@@ -116,7 +122,7 @@ for dataset_id = progress(1:length(dataset_names))
                 for ii = 1:size(stimuli,2)
                     tmp(:,ii) = calculateEnvelopeERBGammatone(stimuli(:,ii),stimuli_fs,env_gmt_freq_range,env_gmt_num_bands,env_gmt_plaw);
                 end
-                env = tmp;
+                env = resample(tmp,common_fs,stimuli_fs);
             end
 
             if ~isnan(env)
@@ -149,7 +155,7 @@ for dataset_id = progress(1:length(dataset_names))
                         py.mel.calculate_mel_spectrogram(...
                         audio=py.numpy.array(stimuli(:,ii)), ...
                         fs=py.int(stimuli_fs), ...
-                        target_fs=py.int(fs))));
+                        target_fs=py.int(common_fs))));
                 end
                 mel = tmp;
             end
