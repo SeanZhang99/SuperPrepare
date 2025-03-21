@@ -85,7 +85,7 @@ for trial_idx = trial_idxs
                 label =  string(data_struct.initAttention(1,trial_idx));
                 env = fastif(label=="left",data_struct.stimulus.leftEnvelopes{1,trial_idx},data_struct.stimulus.rightEnvelopes{1,trial_idx});
                 compet_env = fastif(label=="right",data_struct.stimulus.leftEnvelopes{1,trial_idx},data_struct.stimulus.rightEnvelopes{1,trial_idx});
-        case "ASA_preprocessed"
+        case "NUS_ASA_preprocessed"
                 exg = data_struct.data{1,trial_idx};
                 switch trial_idx
                     case {1, 2, 3, 4}

@@ -80,7 +80,7 @@ for dataset_name = dataset_names
                 "C6";"T8";"TP8";"CP6";"CP4";"CP2";"P2";"P4";"P6";"P8";
                 "P10";"PO8";"PO4";"O2"];
         case "DTU_preprocessed"
-            base_path = fullfile(raw_path,"DTU","preprocessed/");
+            base_path = fullfile(raw_path,"DTU","preprocessed");
             audio_path = "";
             fs = 64;
             filelists = dir(fullfile(base_path,"S*.mat"));
@@ -125,7 +125,7 @@ for dataset_name = dataset_names
             num_subject = 18;
             channel = [];
         case "AHU_preprocessed"
-            base_path = fullfile(raw_path,"AHU","audio-label");
+            base_path = fullfile(raw_path,"AHU","preprocessed");
             audio_path = "";
             fs = 128;
             filelists = dir(fullfile(base_path,"*.mat"));
@@ -150,10 +150,10 @@ for dataset_name = dataset_names
                 "FC2"; "FCz"; "Cz"; "C2"; "C4"; "C6"; "T8"; "TP8"; "CP6"; "CP4"; "CP2"; "P2"; 
                 "P4"; "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2"];
         case "ASA_preprocessed"
-            base_path = fullfile(raw_path,"ASA");
+            base_path = fullfile(raw_path,"NUS_ASA");
             audio_path = "";
             fs = 128;
-            filelists = dir(fullfile(base_path,"*.mat"));
+            filelists = dir(fullfile(base_path,"derivatives","*.mat"));
             channel_indices = 64;
             f_upper = 64;
             num_trial = 20;
