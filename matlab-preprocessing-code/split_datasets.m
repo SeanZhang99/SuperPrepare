@@ -56,6 +56,7 @@ for dataset_id = progress(1:length(dataset_names))
             if fs ~= common_fs
                 exg = resample(exg,common_fs,fs);
             end
+            assert(ismatrix(exg))
 
             %% processing stimuli
             % stimuli_path: "" empty string-> stimuli does not come from a
@@ -302,7 +303,7 @@ for dataset_id = progress(1:length(dataset_names))
 end
 
 %% save metadata
-pickle = py.importlib.import_module('pickle');
-with_open = py.open(fullfile(save_path, "meta","metadata.pkl"),"wb");
-pickle.dump(metadata,with_open);
-with_open.close;
+% pickle = py.importlib.import_module('pickle');
+% fid = py.open(fullfile(save_path, "meta","metadata.pkl"),"wb");
+% pickle.dump(metadata,fid);
+% fid.close;
