@@ -10,10 +10,10 @@ for dataset_id = progress(1:length(dataset_names))
     dataset_name = dataset_names(dataset_id);
     dataset_info = dataset_infos(dataset_id);
     fs = dataset_info.fs;
-    for subject_id = progress(fastif(DEBUG_MODE,1:4,1:dataset_info.num_subject))
+    for subject_id = progress(fastif(DEBUG_MODE,1:1,1:dataset_info.num_subject))
         data_struct = load_data_struct(fullfile(dataset_info.filelists(subject_id).folder,dataset_info.filelists(subject_id).name),dataset_name);
         num_trial = get_num_trials(dataset_name, subject_id, dataset_info);
-        for trial_id = fastif(DEBUG_MODE,1:4,1:num_trial)
+        for trial_id = fastif(DEBUG_MODE,1:1,1:num_trial)
             %% get trial info
             entry = sprintf("dataset-%03d-subject-%03d-trial-%03d",dataset_id,subject_id,trial_id);
             trial_data = extract_trials(data_struct,dataset_info.base_path,trial_id,subject_id,dataset_name,[]);

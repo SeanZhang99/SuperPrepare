@@ -46,6 +46,12 @@ for trial_idx = trial_idxs
                 compet_split_stimuli = split(compet_stimuli_path,"_");
                 env_path = sprintf("powerlaw subbands %s_dry.mat",join(split_stimuli(1:end-1),"_"));
                 compet_env_path = sprintf("powerlaw subbands %s_dry.mat",join(compet_split_stimuli(1:end-1),"_"));
+                
+                if label == "L"
+                    label = "left";
+                elseif label == "R"
+                    label = "right";
+                end
             end
         case {"sparKULee_raw","sparKULee_preprocessed"}
             subject_id_str = sprintf('%03d', subject_id);
@@ -70,7 +76,7 @@ for trial_idx = trial_idxs
                 env = fastif(label=="left",data_struct.data.wavA{trial_idx},data_struct.data.wavB{trial_idx});
                 compet_env = fastif(label=="right",data_struct.data.wavA{trial_idx},data_struct.data.wavB{trial_idx});
             end
-        case "PKU-4talker-EEG_preprocessed"
+        case "PKU_preprocessed"
             data_struct.EEG_space.data=data_struct.EEG_space.data';
                 exg = data_struct.EEG_space.data;
                 label = int32(data_struct.EEG_space.event.latency);
@@ -84,15 +90,15 @@ for trial_idx = trial_idxs
                     env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fW.mat")).env.attended{trial_idx};
                     compet_env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fW.mat")).env.unattended{trial_idx};
                 end
-        case "AHU_preprocessed"
-                exg = squeeze(data_struct.mergedStruct.data(trial_idx,:,:));
-                label =  string(data_struct.mergedStruct.label(trial_idx,:,:));
+        % case "AHU_preprocessed"
+        %         exg = squeeze(data_struct.mergedStruct.data(trial_idx,:,:));
+        %         label =  string(data_struct.mergedStruct.label(trial_idx,:,:));
         case "KUL-AV-GC_preprocessed"
                 exg = data_struct.data{1,trial_idx};
                 label =  string(data_struct.initAttention(1,trial_idx));
                 env = fastif(label=="left",data_struct.stimulus.leftEnvelopes{1,trial_idx},data_struct.stimulus.rightEnvelopes{1,trial_idx});
                 compet_env = fastif(label=="right",data_struct.stimulus.leftEnvelopes{1,trial_idx},data_struct.stimulus.rightEnvelopes{1,trial_idx});
-        case "NUS_ASA_preprocessed"
+        case "NUS_preprocessed"
                 exg = data_struct.data{1,trial_idx};
                 switch trial_idx
                     case {1, 2, 3, 4}

@@ -95,7 +95,7 @@ for dataset_name = dataset_names
                 "FCz"; "Cz"; "C2"; "C4"; "C6"; "T8"; "TP8"; "CP6"; "CP4"; "CP2"; "P2"; "P4"; 
                 "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2";
             ];
-        case "PKU-4talker-EEG_preprocessed"
+        case "PKU_preprocessed"
             base_path = fullfile(raw_path,"PKU-4talker-EEG","preprocess_data","data_space");
             audio_path = "";
             fs = 128;
@@ -129,20 +129,20 @@ for dataset_name = dataset_names
                 "Fp1"; "Fp2"; "FT10"; "FT7"; "FT8"; "FT9"; "Fz"; "O1"; "O2"; "Oz"; "P1"; 
                 "P2"; "P3"; "P4"; "P5"; "P6"; "P7"; "P8"; "PO3"; "PO7"; "PO8"; "POz"; "Pz"; 
                 "FCz"; "T7"; "T8"; "TP10"; "TP7"; "TP8"; "TP9"; "AFz"];
-        case "AHU_preprocessed"
-            base_path = fullfile(raw_path,"AHU","preprocessed");
-            audio_path = "";
-            fs = 128;
-            filelists = dir(fullfile(base_path,"*.mat"));
-            channel_indices = 1:32;
-            f_upper = 64;
-            num_trial = 4352;
-            num_subject = 8;
-            desired_length = 128;
-            channel = ["FP1", "FP2", "F7", "F3", "FZ", "F4", "F8", "FT7", ...
-                  "FC3", "FCZ", "FC4", "FT8", "T3", "C3", "CZ", "C4", ...
-                  "T4", "TP7", "CP3", "CPZ", "CP4", "TP8", "A1", "T5", ...
-                  "P3", "PZ", "P4", "T6", "A2", "O1", "OZ", "O2"];
+        % case "AHU_preprocessed"
+        %     base_path = fullfile(raw_path,"AHU","preprocessed");
+        %     audio_path = "";
+        %     fs = 128;
+        %     filelists = dir(fullfile(base_path,"*.mat"));
+        %     channel_indices = 1:32;
+        %     f_upper = 64;
+        %     num_trial = 4352;
+        %     num_subject = 8;
+        %     desired_length = 128;
+        %     channel = ["FP1", "FP2", "F7", "F3", "FZ", "F4", "F8", "FT7", ...
+        %           "FC3", "FCZ", "FC4", "FT8", "T3", "C3", "CZ", "C4", ...
+        %           "T4", "TP7", "CP3", "CPZ", "CP4", "TP8", "A1", "T5", ...
+        %           "P3", "PZ", "P4", "T6", "A2", "O1", "OZ", "O2"];
         case "KUL-AV-GC_preprocessed"
             base_path = fullfile(raw_path,"KUL_AV_GC");
             audio_path = base_path;
@@ -158,7 +158,7 @@ for dataset_name = dataset_names
                 "Fp2"; "AF8"; "AF4"; "AFz"; "Fz"; "F2"; "F4"; "F6"; "F8"; "FT8"; "FC6"; "FC4";
                 "FC2"; "FCz"; "Cz"; "C2"; "C4"; "C6"; "T8"; "TP8"; "CP6"; "CP4"; "CP2"; "P2"; 
                 "P4"; "P6"; "P8"; "P10"; "PO8"; "PO4"; "O2"];
-        case "ASA_preprocessed"
+        case "NUS_preprocessed"
             base_path = fullfile(raw_path,"NUS_ASA");
             audio_path = "";
             fs = 128;
