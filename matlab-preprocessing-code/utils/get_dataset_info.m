@@ -113,17 +113,22 @@ for dataset_name = dataset_names
                 "TP7"; "TP8"; "Pz"; "P3"; "P4"; "P5"; "P6"; "P7"; "P8"; "POz"; 
                 "PO3"; "PO4"; "PO5"; "PO6"; "PO7"; "PO8"; "Oz"; "O1"; "O2"; 
             ];
-        case "Estart-2019_raw"
-            base_path = fullfile(raw_path,"Estart_2019","eeg");
-            audio_path = fullfile(raw_path,"Estart_2019","audiobooks","audiobooks","fM");
-            fs = 1000;
-            filelists = dir(fullfile(base_path,"*.h5"));
+        case "Estart_preprocessed"
+            base_path = fullfile(raw_path,"Estart","preproc_ica");
+            audio_path = "";
+            fs = 128;
+            filelists = dir(fullfile(base_path,"*.mat"));
             channel_indices = 1:63;
-            f_upper = 128;
-            desired_length = 140000;
+            f_upper = 64;
+            desired_length = 17821;
             num_trial = 4;
-            num_subject = 18;
-            channel = [];
+            num_subject = 36;
+            channel = ["AF3"; "AF4"; "AF7"; "AF8"; "C1"; "C2"; "C3"; "C4"; "C5"; "C6";
+                "CP1"; "CP2"; "CP3"; "CP4"; "CP5"; "CP6"; "CPz"; "Cz"; "F1"; "F2"; "F3";
+                "F4"; "F5"; "F6"; "F7"; "F8"; "FC1"; "FC2"; "FC3"; "FC4"; "FC5"; "FC6";
+                "Fp1"; "Fp2"; "FT10"; "FT7"; "FT8"; "FT9"; "Fz"; "O1"; "O2"; "Oz"; "P1"; 
+                "P2"; "P3"; "P4"; "P5"; "P6"; "P7"; "P8"; "PO3"; "PO7"; "PO8"; "POz"; "Pz"; 
+                "FCz"; "T7"; "T8"; "TP10"; "TP7"; "TP8"; "TP9"; "AFz"];
         case "AHU_preprocessed"
             base_path = fullfile(raw_path,"AHU","preprocessed");
             audio_path = "";
@@ -134,6 +139,10 @@ for dataset_name = dataset_names
             num_trial = 4352;
             num_subject = 8;
             desired_length = 128;
+            channel = ["FP1", "FP2", "F7", "F3", "FZ", "F4", "F8", "FT7", ...
+                  "FC3", "FCZ", "FC4", "FT8", "T3", "C3", "CZ", "C4", ...
+                  "T4", "TP7", "CP3", "CPZ", "CP4", "TP8", "A1", "T5", ...
+                  "P3", "PZ", "P4", "T6", "A2", "O1", "OZ", "O2"];
         case "KUL-AV-GC_preprocessed"
             base_path = fullfile(raw_path,"KUL_AV_GC");
             audio_path = base_path;

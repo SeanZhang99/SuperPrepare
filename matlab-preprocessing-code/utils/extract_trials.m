@@ -74,9 +74,16 @@ for trial_idx = trial_idxs
             data_struct.EEG_space.data=data_struct.EEG_space.data';
                 exg = data_struct.EEG_space.data;
                 label = int32(data_struct.EEG_space.event.latency);
-        case "Estart-2019_raw"
-                exg = data_struct.group__fM.("part_"+num2str(trial_idx));
-                stimuli_path = "part_" + string(trial_idx) + "_story.wav";
+        case "Estart_preprocessed"
+                if mod(trial_idx, 2) == 1
+                    exg = data_struct.segs{trial_idx};
+                    env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fM.mat")).env.attended{trial_idx};
+                    compet_env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fM.mat")).env.unattended{trial_idx};
+                else
+                    exg = data_struct.segs{trial_idx};
+                    env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fW.mat")).env.attended{trial_idx};
+                    compet_env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fW.mat")).env.unattended{trial_idx};
+                end
         case "AHU_preprocessed"
                 exg = squeeze(data_struct.mergedStruct.data(trial_idx,:,:));
                 label =  string(data_struct.mergedStruct.label(trial_idx,:,:));
