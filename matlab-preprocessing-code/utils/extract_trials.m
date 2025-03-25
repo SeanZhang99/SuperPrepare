@@ -81,7 +81,7 @@ for trial_idx = trial_idxs
                 exg = data_struct.EEG_space.data;
                 label = int32(data_struct.EEG_space.event.latency);
         case "Estart_preprocessed"
-                if mod(trial_idx, 2) == 1
+                if mod(subject_id, 2) == 1
                     exg = data_struct.segs{trial_idx};
                     env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fM.mat")).env.attended{trial_idx};
                     compet_env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fM.mat")).env.unattended{trial_idx};
