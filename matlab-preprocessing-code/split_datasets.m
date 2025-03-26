@@ -303,7 +303,7 @@ for dataset_id = progress(1:length(dataset_names))
 end
 
 %% save metadata
-% pickle = py.importlib.import_module('pickle');
-% fid = py.open(fullfile(save_path, "meta","metadata.pkl"),"wb");
-% pickle.dump(metadata,fid);
-% fid.close;
+pickle = py.importlib.import_module('pickle');
+fid = py.open(fullfile(save_path, "meta","metadata.pkl"),"wb");
+pickle.dump(metadata,fid);
+fid.close;
