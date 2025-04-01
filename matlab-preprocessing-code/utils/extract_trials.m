@@ -76,10 +76,9 @@ for trial_idx = trial_idxs
                 env = fastif(label=="left",data_struct.data.wavA{trial_idx},data_struct.data.wavB{trial_idx});
                 compet_env = fastif(label=="right",data_struct.data.wavA{trial_idx},data_struct.data.wavB{trial_idx});
             end
-        case "PKU_preprocessed"
-            data_struct.EEG_space.data=data_struct.EEG_space.data';
-                exg = data_struct.EEG_space.data;
-                label = int32(data_struct.EEG_space.event.latency);
+        % case "PKU_preprocessed"
+        %     exg = data_struct.EEG_space.data';
+        %     label = int32(data_struct.EEG_space.event.latency);
         case "Estart_preprocessed"
                 if mod(subject_id, 2) == 1
                     exg = data_struct.segs{trial_idx};
