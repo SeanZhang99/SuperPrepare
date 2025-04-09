@@ -66,19 +66,38 @@ for trial_idx = trial_idxs
             env_path = target_audio{1}+"_-_envelope.npy";
             mel_path = target_audio{1}+"_-_mel.npy";
         case "DTU_preprocessed"
-            if trial_idx <= length(data_struct.data.eeg)
-                exg = data_struct.data.eeg{trial_idx};
-                if int32(data_struct.data.event.eeg(trial_idx).value{:})==1
-                    label = "left";
+            if trial_idx <= length(data_struct.data)
+                data = data_struct.data{trial_idx};
+                exg = data.eeg{1};
+
+                if isfield(data,'wavB')
+                    if int32(data.event.eeg.value{1})==1
+                        label = "left";
+                    else
+                        label = "right";
+                    stimuli = fastif(label=="left",data.wavA{1},data.wavB{1});
+                    compet_stimuli = fastif(label=="right",data.wavA{1},data.wavB{1});
+                    end
                 else
-                    label = "right";
+                    stimuli = data.wavA{1};
                 end
-                env = fastif(label=="left",data_struct.data.wavA{trial_idx},data_struct.data.wavB{trial_idx});
-                compet_env = fastif(label=="right",data_struct.data.wavA{trial_idx},data_struct.data.wavB{trial_idx});
+
+                stimuli_fs = data.fsample.wavA;
             end
-        % case "PKU_preprocessed"
-        %     exg = data_struct.EEG_space.data';
-        %     label = int32(data_struct.EEG_space.event.latency);
+        case "PKU_preprocessed"
+            exg = data_struct.EEG_space.data';
+            % The label is infered based on the source code given by PKU
+            % dataset's authors.
+            label = mod(trial_idx,10)+1;
+            % The envelope is found on the source code given by authors of
+            % the dataset. The original sampling rate is 64 Hz, and we
+            % resample it to 128 Hz to match the 128 Hz EEG signals.
+            all_envelope = load(fullfile(dataset_path,"space_envall.mat"));
+            all_envelope = resample(all_envelope.space_env',128,64);
+            envelope_index = load(fullfile(dataset_path,"space_num.mat"));
+            envelope_index = envelope_index.space_num(trial_idx,:);
+            env = all_envelope(:,envelope_index(1));
+            compet_env = all_envelope(:,envelope_index(2:end));
         case "Estart_preprocessed"
                 if mod(subject_id, 2) == 1
                     exg = data_struct.segs{trial_idx};
@@ -89,14 +108,28 @@ for trial_idx = trial_idxs
                     env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fW.mat")).env.attended{trial_idx};
                     compet_env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fW.mat")).env.unattended{trial_idx};
                 end
-        % case "AHU_preprocessed"
-        %         exg = squeeze(data_struct.mergedStruct.data(trial_idx,:,:));
-        %         label =  string(data_struct.mergedStruct.label(trial_idx,:,:));
+        case "AHU_preprocessed"
+                exg = data_struct((1:152*128)+(trial_idx-1)*152*128,:);
+                label = fastif(mod(trial_idx,2)==1,"left","right");
+
+                audio_path = fullfile(strrep(dataset_path,"eeg_preproc","mixed_audio"),sprintf("%d.wav",trial_idx));
+                [stimuli,stimuli_fs] = audioread(audio_path);
+                
+                if label == "right"
+                    % convert to attended stimuli first.
+                    stimuli = stimuli(:,[2,1]);
+                end
         case "KUL-AV-GC_preprocessed"
                 exg = data_struct.data{1,trial_idx};
                 label =  string(data_struct.initAttention(1,trial_idx));
                 env = fastif(label=="left",data_struct.stimulus.leftEnvelopes{1,trial_idx},data_struct.stimulus.rightEnvelopes{1,trial_idx});
                 compet_env = fastif(label=="right",data_struct.stimulus.leftEnvelopes{1,trial_idx},data_struct.stimulus.rightEnvelopes{1,trial_idx});
+                % in KUL-AV-GC dataset, subjects are required to change the
+                % direction of attention at the middle point of the trial.
+                % For simplicity, we only remain the first half trial.
+                exg = exg(1:length(exg)/2,:);
+                env = env(1:length(exg)/2,:);
+                compet_env = compet_env(1:length(exg)/2,:);
         case "NUS_preprocessed"
                 exg = data_struct.data{1,trial_idx};
                 switch trial_idx

@@ -1,14 +1,23 @@
 clear;clc;close all;
 addpath(".\utils\");
+addpath(".\resources\");
 
 config;
 
 dataset_infos = get_dataset_info(dataset_names,raw_path);
-metadata = py.dict;
+if APPEND_MODE
+    fid = py.open(fullfile(save_path, "meta","metadata.pkl"),"rb");
+    metadata = pickle.load(fid);
+    fid.close;
+else
+    metadata = py.dict;
+end
+
 
 for dataset_id = progress(1:length(dataset_names))
     dataset_name = dataset_names(dataset_id);
     dataset_info = dataset_infos(dataset_id);
+    dataset_id = 2;
     fs = dataset_info.fs;
     for subject_id = progress(fastif(DEBUG_MODE,1:1,1:dataset_info.num_subject))
         data_struct = load_data_struct(fullfile(dataset_info.filelists(subject_id).folder,dataset_info.filelists(subject_id).name),dataset_name);
@@ -81,7 +90,7 @@ for dataset_id = progress(1:length(dataset_names))
                     % compet_stimuli: nan: competing stimuli not directly
                     % provided. numeric: provided
                 elseif ~isnan(compet_stimuli)
-                    stimuli(:,end+size(compet_stimuli,2)) = to_column_vector(compet_stimuli);
+                    stimuli(:,2:1+size(compet_stimuli,2)) = to_column_vector(compet_stimuli);
                 end
             end
 
@@ -110,7 +119,7 @@ for dataset_id = progress(1:length(dataset_names))
                         env(:,end+1) = tmp;
                     end
                 elseif ~isnan(compet_env)
-                    env(:,end+size(compet_env,2)) = to_column_vector(compet_env);
+                    env(:,2:(1+size(compet_env,2))) = to_column_vector(compet_env);
                 end
                 if fs ~= common_fs
                     env = resample(env,common_fs,fs);
@@ -303,7 +312,6 @@ for dataset_id = progress(1:length(dataset_names))
 end
 
 %% save metadata
-pickle = py.importlib.import_module('pickle');
 fid = py.open(fullfile(save_path, "meta","metadata.pkl"),"wb");
 pickle.dump(metadata,fid);
 fid.close;

@@ -80,14 +80,14 @@ for dataset_name = dataset_names
                 "C6";"T8";"TP8";"CP6";"CP4";"CP2";"P2";"P4";"P6";"P8";
                 "P10";"PO8";"PO4";"O2"];
         case "DTU_preprocessed"
-            base_path = fullfile(raw_path,"DTU","preprocessed");
+            base_path = fullfile(raw_path,"DTU","sphg_preprocessed");
             audio_path = "";
-            fs = 64;
+            fs = 128;
             filelists = dir(fullfile(base_path,"S*.mat"));
             channel_indices = 1:64;
             f_upper = 32;
-            desired_length = 3200;
-            num_trial = 60;
+            desired_length = 6400;
+            num_trial = 70;
             channel = ["Fp1"; "AF7"; "AF3"; "F1"; "F3"; "F5"; "F7"; "FT7"; "FC5"; "FC3"; 
                 "FC1"; "C1"; "C3"; "C5"; "T7"; "TP7"; "CP5"; "CP3"; "CP1"; "P1"; "P3"; "P5";
                 "P7"; "P9"; "PO7"; "PO3"; "O1"; "Iz"; "Oz"; "POz"; "Pz"; "CPz"; "Fpz"; "Fp2";
@@ -129,20 +129,20 @@ for dataset_name = dataset_names
                 "Fp1"; "Fp2"; "FT10"; "FT7"; "FT8"; "FT9"; "Fz"; "O1"; "O2"; "Oz"; "P1"; 
                 "P2"; "P3"; "P4"; "P5"; "P6"; "P7"; "P8"; "PO3"; "PO7"; "PO8"; "POz"; "Pz"; 
                 "FCz"; "T7"; "T8"; "TP10"; "TP7"; "TP8"; "TP9"; "AFz"];
-        % case "AHU_preprocessed"
-        %     base_path = fullfile(raw_path,"AHU","preprocessed");
-        %     audio_path = "";
-        %     fs = 128;
-        %     filelists = dir(fullfile(base_path,"*.mat"));
-        %     channel_indices = 1:32;
-        %     f_upper = 64;
-        %     num_trial = 4352;
-        %     num_subject = 8;
-        %     desired_length = 128;
-        %     channel = ["FP1", "FP2", "F7", "F3", "FZ", "F4", "F8", "FT7", ...
-        %           "FC3", "FCZ", "FC4", "FT8", "T3", "C3", "CZ", "C4", ...
-        %           "T4", "TP7", "CP3", "CPZ", "CP4", "TP8", "A1", "T5", ...
-        %           "P3", "PZ", "P4", "T6", "A2", "O1", "OZ", "O2"];
+        case "AHU_preprocessed"
+            base_path = fullfile(raw_path,"AHU","eeg_preproc");
+            audio_path = "";
+            fs = 128;
+            filelists = dir(fullfile(base_path,"*.csv"));
+            channel_indices = 1:32;
+            f_upper = 64;
+            num_trial = 16;
+            num_subject = 20;
+            desired_length = 152*128;
+            channel = ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "FT7", ...
+                  "FC3", "FCz", "FC4", "FT8", "T7", "C3", "Cz", "C4", ...
+                  "T8", "TP7", "CP3", "CPz", "CP4", "TP8", "A1", "P7", ...
+                  "P3", "Pz", "P4", "P8", "A2", "O1", "Oz", "O2"];
         case "KUL-AV-GC_preprocessed"
             base_path = fullfile(raw_path,"KUL_AV_GC");
             audio_path = base_path;

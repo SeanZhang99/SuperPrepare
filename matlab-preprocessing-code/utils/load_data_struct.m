@@ -4,6 +4,9 @@ function s = load_data_struct(dataset_path,dataset_name)
 switch dataset_name
     case {"sparKULee_raw","sparKULee_preprocessed"}
         s = [];
+    case {"AHU_preprocessed"}
+        s = readtable(dataset_path);
+        s = table2array(s);
     otherwise
         s = load(dataset_path);
 end
