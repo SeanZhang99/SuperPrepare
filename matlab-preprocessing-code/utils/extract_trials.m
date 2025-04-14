@@ -19,7 +19,7 @@ for trial_idx = trial_idxs
     compet_mel = nan;
     stimuli_fs = nan;
     switch dataset_name
-        case {"NJU_preprocessed"}
+        case {"NJU_preprocessed","NJU_raw"}
             if trial_idx <= length(data_struct.data.eeg)
                 exg = data_struct.data.eeg{trial_idx};
                 [~,label] = get_attention_directions(data_struct.expinfo,trial_idx);
@@ -71,24 +71,34 @@ for trial_idx = trial_idxs
                 exg = data.eeg{1};
 
                 if isfield(data,'wavB')
-                    if int32(data.event.eeg.value{1})==1
-                        label = "left";
-                    else
-                        label = "right";
+                    % explicitly say, we are extrating label from attention
+                    % direction but not speaker gender.
+                    label = fastif(data_struct.expinfo.attend_lr(trial_idx)==1,"left","right");
                     stimuli = fastif(label=="left",data.wavA{1},data.wavB{1});
                     compet_stimuli = fastif(label=="right",data.wavA{1},data.wavB{1});
-                    end
                 else
                     stimuli = data.wavA{1};
                 end
-
                 stimuli_fs = data.fsample.wavA;
             end
         case "PKU_preprocessed"
             exg = data_struct.EEG_space.data';
-            % The label is infered based on the source code given by PKU
-            % dataset's authors.
-            label = mod(trial_idx,10)+1;
+            % The label (1-4) is infered based on the source code given by PKU
+            % dataset's authors. The actual directions were told by authors
+            % themselves to me.
+            label = ceil(trial_idx/40);
+            switch label
+                case 1
+                    label = 30;
+                case 2
+                    label = -30;
+                case 3
+                    label = 90;
+                case 4
+                    label = -90;
+                otherwise
+                    error("Unimplemented label");
+            end
             % The envelope is found on the source code given by authors of
             % the dataset. The original sampling rate is 64 Hz, and we
             % resample it to 128 Hz to match the 128 Hz EEG signals.
@@ -119,6 +129,8 @@ for trial_idx = trial_idxs
                     % convert to attended stimuli first.
                     stimuli = stimuli(:,[2,1]);
                 end
+
+                exg = exg * 1e4;
         case "KUL-AV-GC_preprocessed"
                 exg = data_struct.data{1,trial_idx};
                 label =  string(data_struct.initAttention(1,trial_idx));

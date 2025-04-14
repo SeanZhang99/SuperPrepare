@@ -22,7 +22,7 @@ for dataset_name = dataset_names
             filelists = dir(fullfile(base_path,"S*.mat"));
             channel_indices = 1:32;
             f_upper = 64;
-            num_trial = 32;
+            num_trial = 24;
             num_subject = 21;
             desired_length = 115 * fs;
             channel = ["Cz"; "Fz"; "Fp1"; "F7"; "F3"; "FC1"; "C3"; "FC5"; "FT9"; "T7"; "CP5";
@@ -35,7 +35,7 @@ for dataset_name = dataset_names
             filelists = dir(fullfile(base_path,"S*.mat"));
             channel_indices = 1:64;
             f_upper = 64;
-            num_trial = 20;
+            num_trial = 8;
             desired_length = 1.2e4;
             channel = ["Fp1";"AF7";"AF3";"F1";"F3";"F5";"F7";"FT7";"FC5";
                 "FC3";"FC1";"C1";"C3";"C5";"T7";"TP7";"CP5";"CP3";"CP1";
