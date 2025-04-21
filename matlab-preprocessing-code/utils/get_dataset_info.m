@@ -79,15 +79,19 @@ for dataset_name = dataset_names
                 "F6";"F8";"FT8";"FC6";"FC4";"FC2";"FCz";"Cz";"C2";"C4";
                 "C6";"T8";"TP8";"CP6";"CP4";"CP2";"P2";"P4";"P6";"P8";
                 "P10";"PO8";"PO4";"O2"];
-        case "DTU_preprocessed"
-            base_path = fullfile(raw_path,"DTU","sphg_preprocessed");
+        case {"DTU_preprocessed","DTU_raw"}
+            if type == "raw"
+                base_path = fullfile(raw_path,"DTU","aligned");
+            elseif type == "preprocessed"
+                base_path = fullfile(raw_path,"DTU","sphg_preprocessed");
+            end
             audio_path = "";
             fs = 128;
             filelists = dir(fullfile(base_path,"S*.mat"));
             channel_indices = 1:64;
             f_upper = 32;
             desired_length = 6400;
-            num_trial = 70;
+            num_trial = 60;
             channel = ["Fp1"; "AF7"; "AF3"; "F1"; "F3"; "F5"; "F7"; "FT7"; "FC5"; "FC3"; 
                 "FC1"; "C1"; "C3"; "C5"; "T7"; "TP7"; "CP5"; "CP3"; "CP1"; "P1"; "P3"; "P5";
                 "P7"; "P9"; "PO7"; "PO3"; "O1"; "Iz"; "Oz"; "POz"; "Pz"; "CPz"; "Fpz"; "Fp2";

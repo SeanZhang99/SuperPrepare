@@ -5,15 +5,23 @@ config;
 
 dataset_infos = get_dataset_info(dataset_names,raw_path);
 if APPEND_MODE
-    if isfile(fullfile(save_path, "meta",sprintf("metadata_%s.pkl",preproc_stage)))
-        fid = py.open(fullfile(save_path, "meta",sprintf("metadata_%s.pkl",preproc_stage)),"rb");
+    if isfile(fullfile(save_path, "meta","metadata.pkl"))
+        fid = py.open(fullfile(save_path, "meta","metadata.pkl"),"rb");
         metadata = pickle.load(fid);
         fid.close;
     else
         metadata = py.dict;
     end
+    if isfile(fullfile(save_path,"meta","scaling_factor.pkl"))
+        fid = py.open(fullfile(save_path,"meta","scaling_factor.pkl"));
+        scaling_factor = pickle.load(fid);
+        fid.fclose;
+    else
+        scaling_factor = py.dict;
+    end
 else
     metadata = py.dict;
+    scaling_factor = py.dict;
 end
 
 
@@ -22,9 +30,10 @@ for dataset_idx = progress(1:length(dataset_names))
     dataset_info = dataset_infos(dataset_idx);
     dataset_id = dataset_name_id_pair{extractBefore(dataset_name,"_")};
     fs = dataset_info.fs;
-    for subject_id = progress(fastif(DEBUG_MODE,16,1:dataset_info.num_subject))
+    for subject_id = progress(fastif(DEBUG_MODE,1,1:dataset_info.num_subject))
         data_struct = load_data_struct(fullfile(dataset_info.filelists(subject_id).folder,dataset_info.filelists(subject_id).name),dataset_name);
         num_trial = get_num_trials(dataset_name, subject_id, dataset_info);
+        scaler = SubjectwiseScaler(dataset_info.nch);
         for trial_id = fastif(DEBUG_MODE,1,1:num_trial)
             %% get trial info
             entry = sprintf("dataset-%03d-subject-%03d-trial-%03d",dataset_id,subject_id,trial_id);
@@ -138,6 +147,10 @@ for dataset_idx = progress(1:length(dataset_names))
                 env = resample(tmp,common_fs,stimuli_fs);
             end
 
+            if ~isnan(env)
+                env = reshape(env,size(env,1),1,size(env,2));
+            end
+
 
             %% processing mel spectrum
             if mel_path ~= ""
@@ -171,8 +184,8 @@ for dataset_idx = progress(1:length(dataset_names))
             %% detect if stimuli/envelope/mel is zero. remove those silent trailing. also remove unaligned segments
             if contains(dataset_name,"NJU")
                 starting_time_step = (length(env)-length(exg))/common_fs;
-                env = env(starting_time_step*common_fs+1:end,:);
-                mel = mel(starting_time_step*common_fs+1:end,:);
+                env = env(starting_time_step*common_fs+1:end,:,:);
+                mel = mel(starting_time_step*common_fs+1:end,:,:);
                 stimuli = stimuli(starting_time_step*stimuli_fs+1:end,:);
             else
                 trim_length = length(exg);
@@ -187,7 +200,7 @@ for dataset_idx = progress(1:length(dataset_names))
                 end
                 exg = exg(1:trim_length,:);
                 if ~isnan(env)
-                    env = env(1:trim_length,:);
+                    env = env(1:trim_length,:,:);
                 end
                 if ~isnan(mel)
                     mel = mel(1:trim_length,:,:);
@@ -218,11 +231,11 @@ for dataset_idx = progress(1:length(dataset_names))
             exg = exg(~silent_idx,:);
 
             if ~isnan(env)
-                env = env(~silent_idx,:);
+                env = env(~silent_idx,:,:);
             end
 
             if ~isnan(mel)
-                mel = mel(~silent_idx,:);
+                mel = mel(~silent_idx,:,:);
             end
 
             if ~isnan(stimuli)
@@ -242,6 +255,8 @@ for dataset_idx = progress(1:length(dataset_names))
                 assert(length(exg)==(length(stimuli)/stimuli_fs*common_fs))
             end
             %% saving eeg/env/mel to files
+            % update the scaler
+            scaler = scaler.update(exg);
             % save exg to file
             if EXG_OVERRIDE || ~exist(fullfile(exg_path,sprintf("%s.npy",entry)),"file")
                 py.numpy.save(fullfile(exg_path,sprintf("%s.npy",entry)),py.numpy.array(exg));
@@ -262,7 +277,7 @@ for dataset_idx = progress(1:length(dataset_names))
 
             % save mel to fule
             if ~isnan(mel)
-                mel_path = fullfile(wav_path,"mel",sprintf("%s_mel.pkl",entry));
+                mel_path = fullfile(wav_path,"mel",sprintf("%s_mel.npy",entry));
             end
             if mel_path ~= "" && (MEL_SPECTRUM_OVERRIDE || ~exist(mel_path,"file"))
                 py.numpy.save(mel_path,py.numpy.array(mel));
@@ -311,8 +326,11 @@ for dataset_idx = progress(1:length(dataset_names))
                 "mel","compet_mel","mel_silent_idx",...
                 "starting_time_step");
         end
+        [scaler, scaling_factor_tmp] = scaler.get_scaling_factor();
+        scaling_factor{sprintf("dataset-%03d-subject-%03d",dataset_id,subject_id)} = py.float(scaling_factor_tmp);
     end
 end
 
 %% save metadata
 save_pickle(pickle,fullfile(save_path, "meta","metadata.pkl"),metadata);
+save_pickle(pickle,fullfile(save_path, "meta","scaling_factor.pkl"),scaling_factor)
