@@ -13,9 +13,9 @@ if APPEND_MODE
         metadata = py.dict;
     end
     if isfile(fullfile(save_path,"meta","scaling_factor.pkl"))
-        fid = py.open(fullfile(save_path,"meta","scaling_factor.pkl"));
+        fid = py.open(fullfile(save_path,"meta","scaling_factor.pkl"),"rb");
         scaling_factor = pickle.load(fid);
-        fid.fclose;
+        fid.close;
     else
         scaling_factor = py.dict;
     end
@@ -31,6 +31,8 @@ for dataset_idx = progress(1:length(dataset_names))
     dataset_id = dataset_name_id_pair{extractBefore(dataset_name,"_")};
     fs = dataset_info.fs;
     for subject_id = progress(fastif(DEBUG_MODE,1,1:dataset_info.num_subject))
+        % filelists顺序不是1，2，3，。。。的顺序。需要排序
+        % 已更正。对存在此类问题的文件和文件夹使用填0命名，确保文件顺序和原本受试编号严格一致。
         data_struct = load_data_struct(fullfile(dataset_info.filelists(subject_id).folder,dataset_info.filelists(subject_id).name),dataset_name);
         num_trial = get_num_trials(dataset_name, subject_id, dataset_info);
         scaler = SubjectwiseScaler(dataset_info.nch);
@@ -210,39 +212,42 @@ for dataset_idx = progress(1:length(dataset_names))
                 end
             end
 
-            silent_idx = zeros(length(exg),1);
-            if ~isnan(stimuli)
-                stimuli_silent_idx = detect_silent_tailing(stimuli,silent_env_threshold,stimuli_fs);
-                stimuli_silent_idx = stimuli_silent_idx(floor(linspace(1,length(stimuli),length(exg))));
-                stimuli_silent_idx = to_column_vector(stimuli_silent_idx);
-                silent_idx = silent_idx | stimuli_silent_idx;
-            end
-            if ~isnan(env)
-                env_silent_idx = detect_silent_tailing(env,silent_env_threshold,common_fs);
-                env_silent_idx = to_column_vector(env_silent_idx);
-                silent_idx = silent_idx | env_silent_idx;
-            end
-            if ~isnan(mel)
-                mel_silent_idx = detect_silent_tailing(mel,silent_mel_threshold,common_fs);
-                mel_silent_idx = to_column_vector(mel_silent_idx);
-                silent_idx = silent_idx | mel_silent_idx;
-            end
-
-            exg = exg(~silent_idx,:);
-
-            if ~isnan(env)
-                env = env(~silent_idx,:,:);
-            end
-
-            if ~isnan(mel)
-                mel = mel(~silent_idx,:,:);
-            end
-
-            if ~isnan(stimuli)
-                stimuli_silent_idx = repmat(silent_idx,[1,stimuli_fs/common_fs])';
-                stimuli_silent_idx = reshape(stimuli_silent_idx,[],1);
+            % Trim the tailing silent segment
+            if contains(dataset_name,"NJU")
+                silent_idx = zeros(length(exg),1);
+                if ~isnan(stimuli)
+                    stimuli_silent_idx = detect_silent_tailing(stimuli,silent_env_threshold,stimuli_fs);
+                    stimuli_silent_idx = stimuli_silent_idx(floor(linspace(1,length(stimuli),length(exg))));
+                    stimuli_silent_idx = to_column_vector(stimuli_silent_idx);
+                    silent_idx = silent_idx | stimuli_silent_idx;
+                end
+                if ~isnan(env)
+                    env_silent_idx = detect_silent_tailing(env,silent_env_threshold,common_fs);
+                    env_silent_idx = to_column_vector(env_silent_idx);
+                    silent_idx = silent_idx | env_silent_idx;
+                end
+                if ~isnan(mel)
+                    mel_silent_idx = detect_silent_tailing(mel,silent_mel_threshold,common_fs);
+                    mel_silent_idx = to_column_vector(mel_silent_idx);
+                    silent_idx = silent_idx | mel_silent_idx;
+                end
     
-                stimuli = stimuli(~stimuli_silent_idx,:);
+                exg = exg(~silent_idx,:);
+    
+                if ~isnan(env)
+                    env = env(~silent_idx,:,:);
+                end
+    
+                if ~isnan(mel)
+                    mel = mel(~silent_idx,:,:);
+                end
+    
+                if ~isnan(stimuli)
+                    stimuli_silent_idx = repmat(silent_idx,[1,stimuli_fs/common_fs])';
+                    stimuli_silent_idx = reshape(stimuli_silent_idx,[],1);
+        
+                    stimuli = stimuli(~stimuli_silent_idx,:);
+                end
             end
 
             if ~isnan(env)
@@ -259,12 +264,17 @@ for dataset_idx = progress(1:length(dataset_names))
             scaler = scaler.update(exg);
             % save exg to file
             if EXG_OVERRIDE || ~exist(fullfile(exg_path,sprintf("%s.npy",entry)),"file")
-                py.numpy.save(fullfile(exg_path,sprintf("%s.npy",entry)),py.numpy.array(exg));
+                exg = py.numpy.array(exg);
+                py.numpy.save(fullfile(exg_path,sprintf("%s.npy",entry)),exg);
             end
 
             % save stimuli
             if stimuli_path ~= "" && (STIMULI_OVERRIDE || ~exist(stimuli_path,"file"))
-                py.numpy.save(stimuli_path,py.numpy.array(stimuli));
+                stimuli = py.numpy.array(stimuli);
+                if stimuli.ndim == 1
+                    stimuli = py.numpy.expand_dims(stimuli,py.int(1));
+                end
+                py.numpy.save(stimuli_path,stimuli);
             end
 
               % save env to file
@@ -272,7 +282,11 @@ for dataset_idx = progress(1:length(dataset_names))
                 env_path = fullfile(wav_path,"env",sprintf("%s_env.npy",entry));
             end
             if env_path ~= "" && (ENVELOPE_OVERRIDE || ~exist(env_path,"file"))
-                py.numpy.save(env_path,py.numpy.array(env));
+                env = py.numpy.array(env);
+                if env.ndim == 1
+                    env = py.numpy.expand_dims(env,py.int(1));
+                end
+                py.numpy.save(env_path,env);
             end
 
             % save mel to fule
@@ -280,7 +294,11 @@ for dataset_idx = progress(1:length(dataset_names))
                 mel_path = fullfile(wav_path,"mel",sprintf("%s_mel.npy",entry));
             end
             if mel_path ~= "" && (MEL_SPECTRUM_OVERRIDE || ~exist(mel_path,"file"))
-                py.numpy.save(mel_path,py.numpy.array(mel));
+                mel = py.numpy.array(mel);
+                if mel.ndim == 2
+                    mel = py.numpy.expand_dims(mel,py.int(1));
+                end
+                py.numpy.save(mel_path,mel);
             end
 
             %% prepare metadata
@@ -294,6 +312,7 @@ for dataset_idx = progress(1:length(dataset_names))
             metadata{entry}{"fs"} = py.int(fs);
             metadata{entry}{"dataset_name"} = py.str(dataset_name);
             metadata{entry}{"channel_infos"} = dataset_info.channel_infos;
+            metadata{entry}{"num_speakers"} = py.int(dataset_info.num_speaker);
 
             if label~=""
                 metadata{entry}{"label"}=py.str(label);

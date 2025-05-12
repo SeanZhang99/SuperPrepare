@@ -8,7 +8,7 @@ switch extension
         stimuli = s.envelope;
         fs = s.Fs;
     case {".npy"}
-        stimuli = npyread(fullfile(path,stimuli_path));
+        stimuli = double(py.numpy.load(fullfile(path,stimuli_path)));
         fs = NaN;
     otherwise
         [stimuli,fs] = audioread(fullfile(path,stimuli_path));
