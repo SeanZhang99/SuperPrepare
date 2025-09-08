@@ -19,9 +19,17 @@ if APPEND_MODE
     else
         scaling_factor = py.dict;
     end
+    if isfile(fullfile(save_path,"meta","channelwise_scaling_factor.pkl"))
+        fid = py.open(fullfile(save_path,"meta","channelwise_scaling_factor.pkl"),"rb");
+        channelwise_scaling_factor = pickle.load(fid);
+        fid.close;
+    else
+        channelwise_scaling_factor = py.dict;
+    end
 else
     metadata = py.dict;
     scaling_factor = py.dict;
+    channelwise_scaling_factor = py.dict;
 end
 
 
@@ -35,7 +43,9 @@ for dataset_idx = progress(1:length(dataset_names))
         % 已更正。对存在此类问题的文件和文件夹使用填0命名，确保文件顺序和原本受试编号严格一致。
         data_struct = load_data_struct(fullfile(dataset_info.filelists(subject_id).folder,dataset_info.filelists(subject_id).name),dataset_name);
         num_trial = get_num_trials(dataset_name, subject_id, dataset_info);
-        scaler = SubjectwiseScaler(dataset_info.nch);
+        exg_scaler = SubjectwiseScaler(dataset_info.nch);
+        env_scaler = SubjectwiseScaler(1);
+        mel_scaler = SubjectwiseScaler(10);
         for trial_id = fastif(DEBUG_MODE,1,1:num_trial)
             %% get trial info
             entry = sprintf("dataset-%03d-subject-%03d-trial-%03d",dataset_id,subject_id,trial_id);
@@ -44,12 +54,6 @@ for dataset_idx = progress(1:length(dataset_names))
 
             exg = trial_data.exg;
             label = trial_data.label;
-
-            if DEBUG_MODE && subject_id == 1 && trial_id == 1
-                % plot(exg)
-                % keyboard
-                % close all
-            end
 
             stimuli_path = trial_data.stimuli_path;
             compet_stimuli_path = trial_data.compet_stimuli_path;
@@ -261,7 +265,7 @@ for dataset_idx = progress(1:length(dataset_names))
             end
             %% saving eeg/env/mel to files
             % update the scaler
-            scaler = scaler.update(exg);
+            exg_scaler = exg_scaler.update(exg);
             % save exg to file
             if EXG_OVERRIDE || ~exist(fullfile(exg_path,sprintf("%s.npy",entry)),"file")
                 exg = py.numpy.array(exg);
@@ -272,31 +276,33 @@ for dataset_idx = progress(1:length(dataset_names))
             if stimuli_path ~= "" && (STIMULI_OVERRIDE || ~exist(stimuli_path,"file"))
                 stimuli = py.numpy.array(stimuli);
                 if stimuli.ndim == 1
-                    stimuli = py.numpy.expand_dims(stimuli,py.int(1));
+                    stimuli = py.numpy.expand_dims(stimuli,py.tuple([int32(1),int32(2)]));
                 end
                 py.numpy.save(stimuli_path,stimuli);
             end
 
-              % save env to file
+          % save env to file
             if ~isnan(env)
                 env_path = fullfile(wav_path,"env",sprintf("%s_env.npy",entry));
             end
             if env_path ~= "" && (ENVELOPE_OVERRIDE || ~exist(env_path,"file"))
+                env_scaler = env_scaler.update(env);
                 env = py.numpy.array(env);
                 if env.ndim == 1
-                    env = py.numpy.expand_dims(env,py.int(1));
+                    env = py.numpy.expand_dims(env,py.tuple([int32(1),int32(2)]));
                 end
                 py.numpy.save(env_path,env);
             end
 
-            % save mel to fule
+            % save mel to file
             if ~isnan(mel)
                 mel_path = fullfile(wav_path,"mel",sprintf("%s_mel.npy",entry));
             end
             if mel_path ~= "" && (MEL_SPECTRUM_OVERRIDE || ~exist(mel_path,"file"))
+                mel_scaler = mel_scaler.update(mel);
                 mel = py.numpy.array(mel);
                 if mel.ndim == 2
-                    mel = py.numpy.expand_dims(mel,py.int(1));
+                    mel = py.numpy.expand_dims(mel,py.tuple([int32(2),int32(3)]));
                 end
                 py.numpy.save(mel_path,mel);
             end
@@ -345,11 +351,26 @@ for dataset_idx = progress(1:length(dataset_names))
                 "mel","compet_mel","mel_silent_idx",...
                 "starting_time_step");
         end
-        [scaler, scaling_factor_tmp] = scaler.get_scaling_factor();
-        scaling_factor{sprintf("dataset-%03d-subject-%03d",dataset_id,subject_id)} = py.float(scaling_factor_tmp);
+        set_sub_entry = sprintf("dataset-%03d-subject-%03d",dataset_id,subject_id);
+        scaling_factor{set_sub_entry} = py.dict;
+        channelwise_scaling_factor{set_sub_entry} = py.dict;
+
+        [exg_scaler, scaling_factor_tmp, channelwise_scaling_factor_tmp] = exg_scaler.get_scaling_factor();
+        scaling_factor{set_sub_entry}{"eeg"} = scaling_factor_tmp;
+        channelwise_scaling_factor{set_sub_entry}{"eeg"} = channelwise_scaling_factor_tmp;
+
+        [env_scaler, scaling_factor_tmp, channelwise_scaling_factor_tmp] = env_scaler.get_scaling_factor();
+        scaling_factor{set_sub_entry}{"env"} = scaling_factor_tmp;
+        channelwise_scaling_factor{set_sub_entry}{"env"} = channelwise_scaling_factor_tmp;
+        
+        [mel_scaler, scaling_factor_tmp, channelwise_scaling_factor_tmp] = mel_scaler.get_scaling_factor();
+        scaling_factor{set_sub_entry}{"mel"} = scaling_factor_tmp;
+        channelwise_scaling_factor{set_sub_entry}{"mel"} = channelwise_scaling_factor_tmp;
+        
     end
 end
 
 %% save metadata
 save_pickle(pickle,fullfile(save_path, "meta","metadata.pkl"),metadata);
 save_pickle(pickle,fullfile(save_path, "meta","scaling_factor.pkl"),scaling_factor)
+save_pickle(pickle,fullfile(save_path, "meta","channelwise_scaling_factor.pkl"),channelwise_scaling_factor)
