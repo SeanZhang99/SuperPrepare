@@ -5,15 +5,31 @@ config;
 
 dataset_infos = get_dataset_info(dataset_names,raw_path);
 if APPEND_MODE
-    if isfile(fullfile(save_path, "meta",sprintf("metadata_%s.pkl",preproc_stage)))
-        fid = py.open(fullfile(save_path, "meta",sprintf("metadata_%s.pkl",preproc_stage)),"rb");
+    if isfile(fullfile(save_path, "meta","metadata.pkl"))
+        fid = py.open(fullfile(save_path, "meta","metadata.pkl"),"rb");
         metadata = pickle.load(fid);
         fid.close;
     else
         metadata = py.dict;
     end
+    if isfile(fullfile(save_path,"meta","scaling_factor.pkl"))
+        fid = py.open(fullfile(save_path,"meta","scaling_factor.pkl"),"rb");
+        scaling_factor = pickle.load(fid);
+        fid.close;
+    else
+        scaling_factor = py.dict;
+    end
+    if isfile(fullfile(save_path,"meta","channelwise_scaling_factor.pkl"))
+        fid = py.open(fullfile(save_path,"meta","channelwise_scaling_factor.pkl"),"rb");
+        channelwise_scaling_factor = pickle.load(fid);
+        fid.close;
+    else
+        channelwise_scaling_factor = py.dict;
+    end
 else
     metadata = py.dict;
+    scaling_factor = py.dict;
+    channelwise_scaling_factor = py.dict;
 end
 
 
@@ -22,9 +38,14 @@ for dataset_idx = progress(1:length(dataset_names))
     dataset_info = dataset_infos(dataset_idx);
     dataset_id = dataset_name_id_pair{extractBefore(dataset_name,"_")};
     fs = dataset_info.fs;
-    for subject_id = progress(fastif(DEBUG_MODE,16,1:dataset_info.num_subject))
+    for subject_id = progress(fastif(DEBUG_MODE,1,1:dataset_info.num_subject))
+        % filelists顺序不是1，2，3，。。。的顺序。需要排序
+        % 已更正。对存在此类问题的文件和文件夹使用填0命名，确保文件顺序和原本受试编号严格一致。
         data_struct = load_data_struct(fullfile(dataset_info.filelists(subject_id).folder,dataset_info.filelists(subject_id).name),dataset_name);
         num_trial = get_num_trials(dataset_name, subject_id, dataset_info);
+        exg_scaler = SubjectwiseScaler(dataset_info.nch);
+        env_scaler = SubjectwiseScaler(1);
+        mel_scaler = SubjectwiseScaler(10);
         for trial_id = fastif(DEBUG_MODE,1,1:num_trial)
             %% get trial info
             entry = sprintf("dataset-%03d-subject-%03d-trial-%03d",dataset_id,subject_id,trial_id);
@@ -33,12 +54,6 @@ for dataset_idx = progress(1:length(dataset_names))
 
             exg = trial_data.exg;
             label = trial_data.label;
-
-            if DEBUG_MODE && subject_id == 1 && trial_id == 1
-                % plot(exg)
-                % keyboard
-                % close all
-            end
 
             stimuli_path = trial_data.stimuli_path;
             compet_stimuli_path = trial_data.compet_stimuli_path;
@@ -138,6 +153,10 @@ for dataset_idx = progress(1:length(dataset_names))
                 env = resample(tmp,common_fs,stimuli_fs);
             end
 
+            if ~isnan(env)
+                env = reshape(env,size(env,1),1,size(env,2));
+            end
+
 
             %% processing mel spectrum
             if mel_path ~= ""
@@ -171,8 +190,8 @@ for dataset_idx = progress(1:length(dataset_names))
             %% detect if stimuli/envelope/mel is zero. remove those silent trailing. also remove unaligned segments
             if contains(dataset_name,"NJU")
                 starting_time_step = (length(env)-length(exg))/common_fs;
-                env = env(starting_time_step*common_fs+1:end,:);
-                mel = mel(starting_time_step*common_fs+1:end,:);
+                env = env(starting_time_step*common_fs+1:end,:,:);
+                mel = mel(starting_time_step*common_fs+1:end,:,:);
                 stimuli = stimuli(starting_time_step*stimuli_fs+1:end,:);
             else
                 trim_length = length(exg);
@@ -187,7 +206,7 @@ for dataset_idx = progress(1:length(dataset_names))
                 end
                 exg = exg(1:trim_length,:);
                 if ~isnan(env)
-                    env = env(1:trim_length,:);
+                    env = env(1:trim_length,:,:);
                 end
                 if ~isnan(mel)
                     mel = mel(1:trim_length,:,:);
@@ -197,39 +216,42 @@ for dataset_idx = progress(1:length(dataset_names))
                 end
             end
 
-            silent_idx = zeros(length(exg),1);
-            if ~isnan(stimuli)
-                stimuli_silent_idx = detect_silent_tailing(stimuli,silent_env_threshold,stimuli_fs);
-                stimuli_silent_idx = stimuli_silent_idx(floor(linspace(1,length(stimuli),length(exg))));
-                stimuli_silent_idx = to_column_vector(stimuli_silent_idx);
-                silent_idx = silent_idx | stimuli_silent_idx;
-            end
-            if ~isnan(env)
-                env_silent_idx = detect_silent_tailing(env,silent_env_threshold,common_fs);
-                env_silent_idx = to_column_vector(env_silent_idx);
-                silent_idx = silent_idx | env_silent_idx;
-            end
-            if ~isnan(mel)
-                mel_silent_idx = detect_silent_tailing(mel,silent_mel_threshold,common_fs);
-                mel_silent_idx = to_column_vector(mel_silent_idx);
-                silent_idx = silent_idx | mel_silent_idx;
-            end
-
-            exg = exg(~silent_idx,:);
-
-            if ~isnan(env)
-                env = env(~silent_idx,:);
-            end
-
-            if ~isnan(mel)
-                mel = mel(~silent_idx,:);
-            end
-
-            if ~isnan(stimuli)
-                stimuli_silent_idx = repmat(silent_idx,[1,stimuli_fs/common_fs])';
-                stimuli_silent_idx = reshape(stimuli_silent_idx,[],1);
+            % Trim the tailing silent segment
+            if contains(dataset_name,"NJU")
+                silent_idx = zeros(length(exg),1);
+                if ~isnan(stimuli)
+                    stimuli_silent_idx = detect_silent_tailing(stimuli,silent_env_threshold,stimuli_fs);
+                    stimuli_silent_idx = stimuli_silent_idx(floor(linspace(1,length(stimuli),length(exg))));
+                    stimuli_silent_idx = to_column_vector(stimuli_silent_idx);
+                    silent_idx = silent_idx | stimuli_silent_idx;
+                end
+                if ~isnan(env)
+                    env_silent_idx = detect_silent_tailing(env,silent_env_threshold,common_fs);
+                    env_silent_idx = to_column_vector(env_silent_idx);
+                    silent_idx = silent_idx | env_silent_idx;
+                end
+                if ~isnan(mel)
+                    mel_silent_idx = detect_silent_tailing(mel,silent_mel_threshold,common_fs);
+                    mel_silent_idx = to_column_vector(mel_silent_idx);
+                    silent_idx = silent_idx | mel_silent_idx;
+                end
     
-                stimuli = stimuli(~stimuli_silent_idx,:);
+                exg = exg(~silent_idx,:);
+    
+                if ~isnan(env)
+                    env = env(~silent_idx,:,:);
+                end
+    
+                if ~isnan(mel)
+                    mel = mel(~silent_idx,:,:);
+                end
+    
+                if ~isnan(stimuli)
+                    stimuli_silent_idx = repmat(silent_idx,[1,stimuli_fs/common_fs])';
+                    stimuli_silent_idx = reshape(stimuli_silent_idx,[],1);
+        
+                    stimuli = stimuli(~stimuli_silent_idx,:);
+                end
             end
 
             if ~isnan(env)
@@ -242,30 +264,47 @@ for dataset_idx = progress(1:length(dataset_names))
                 assert(length(exg)==(length(stimuli)/stimuli_fs*common_fs))
             end
             %% saving eeg/env/mel to files
+            % update the scaler
+            exg_scaler = exg_scaler.update(exg);
             % save exg to file
             if EXG_OVERRIDE || ~exist(fullfile(exg_path,sprintf("%s.npy",entry)),"file")
-                py.numpy.save(fullfile(exg_path,sprintf("%s.npy",entry)),py.numpy.array(exg));
+                exg = py.numpy.array(exg);
+                py.numpy.save(fullfile(exg_path,sprintf("%s.npy",entry)),exg);
             end
 
             % save stimuli
             if stimuli_path ~= "" && (STIMULI_OVERRIDE || ~exist(stimuli_path,"file"))
-                py.numpy.save(stimuli_path,py.numpy.array(stimuli));
+                stimuli = py.numpy.array(stimuli);
+                if stimuli.ndim == 1
+                    stimuli = py.numpy.expand_dims(stimuli,py.tuple([int32(1),int32(2)]));
+                end
+                py.numpy.save(stimuli_path,stimuli);
             end
 
-              % save env to file
+          % save env to file
             if ~isnan(env)
                 env_path = fullfile(wav_path,"env",sprintf("%s_env.npy",entry));
             end
             if env_path ~= "" && (ENVELOPE_OVERRIDE || ~exist(env_path,"file"))
-                py.numpy.save(env_path,py.numpy.array(env));
+                env_scaler = env_scaler.update(env);
+                env = py.numpy.array(env);
+                if env.ndim == 1
+                    env = py.numpy.expand_dims(env,py.tuple([int32(1),int32(2)]));
+                end
+                py.numpy.save(env_path,env);
             end
 
-            % save mel to fule
+            % save mel to file
             if ~isnan(mel)
-                mel_path = fullfile(wav_path,"mel",sprintf("%s_mel.pkl",entry));
+                mel_path = fullfile(wav_path,"mel",sprintf("%s_mel.npy",entry));
             end
             if mel_path ~= "" && (MEL_SPECTRUM_OVERRIDE || ~exist(mel_path,"file"))
-                py.numpy.save(mel_path,py.numpy.array(mel));
+                mel_scaler = mel_scaler.update(mel);
+                mel = py.numpy.array(mel);
+                if mel.ndim == 2
+                    mel = py.numpy.expand_dims(mel,py.tuple([int32(2),int32(3)]));
+                end
+                py.numpy.save(mel_path,mel);
             end
 
             %% prepare metadata
@@ -279,6 +318,7 @@ for dataset_idx = progress(1:length(dataset_names))
             metadata{entry}{"fs"} = py.int(fs);
             metadata{entry}{"dataset_name"} = py.str(dataset_name);
             metadata{entry}{"channel_infos"} = dataset_info.channel_infos;
+            metadata{entry}{"num_speakers"} = py.int(dataset_info.num_speaker);
 
             if label~=""
                 metadata{entry}{"label"}=py.str(label);
@@ -311,8 +351,26 @@ for dataset_idx = progress(1:length(dataset_names))
                 "mel","compet_mel","mel_silent_idx",...
                 "starting_time_step");
         end
+        set_sub_entry = sprintf("dataset-%03d-subject-%03d",dataset_id,subject_id);
+        scaling_factor{set_sub_entry} = py.dict;
+        channelwise_scaling_factor{set_sub_entry} = py.dict;
+
+        [exg_scaler, scaling_factor_tmp, channelwise_scaling_factor_tmp] = exg_scaler.get_scaling_factor();
+        scaling_factor{set_sub_entry}{"eeg"} = scaling_factor_tmp;
+        channelwise_scaling_factor{set_sub_entry}{"eeg"} = channelwise_scaling_factor_tmp;
+
+        [env_scaler, scaling_factor_tmp, channelwise_scaling_factor_tmp] = env_scaler.get_scaling_factor();
+        scaling_factor{set_sub_entry}{"env"} = scaling_factor_tmp;
+        channelwise_scaling_factor{set_sub_entry}{"env"} = channelwise_scaling_factor_tmp;
+        
+        [mel_scaler, scaling_factor_tmp, channelwise_scaling_factor_tmp] = mel_scaler.get_scaling_factor();
+        scaling_factor{set_sub_entry}{"mel"} = scaling_factor_tmp;
+        channelwise_scaling_factor{set_sub_entry}{"mel"} = channelwise_scaling_factor_tmp;
+        
     end
 end
 
 %% save metadata
 save_pickle(pickle,fullfile(save_path, "meta","metadata.pkl"),metadata);
+save_pickle(pickle,fullfile(save_path, "meta","scaling_factor.pkl"),scaling_factor)
+save_pickle(pickle,fullfile(save_path, "meta","channelwise_scaling_factor.pkl"),channelwise_scaling_factor)

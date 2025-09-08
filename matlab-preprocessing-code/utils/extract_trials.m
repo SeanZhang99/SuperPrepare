@@ -65,20 +65,16 @@ for trial_idx = trial_idxs
                 "tokens");
             env_path = target_audio{1}+"_-_envelope.npy";
             mel_path = target_audio{1}+"_-_mel.npy";
-        case "DTU_preprocessed"
+        case {"DTU_preprocessed","DTU_raw"}
             if trial_idx <= length(data_struct.data)
                 data = data_struct.data{trial_idx};
                 exg = data.eeg{1};
 
-                if isfield(data,'wavB')
-                    % explicitly say, we are extrating label from attention
-                    % direction but not speaker gender.
-                    label = fastif(data_struct.expinfo.attend_lr(trial_idx)==1,"left","right");
-                    stimuli = fastif(label=="left",data.wavA{1},data.wavB{1});
-                    compet_stimuli = fastif(label=="right",data.wavA{1},data.wavB{1});
-                else
-                    stimuli = data.wavA{1};
-                end
+                % explicitly say, we are extrating label from attention
+                % direction but not speaker gender.
+                label = fastif(data_struct.expinfo.attend_lr(trial_idx)==1,"left","right");
+                stimuli = fastif(label=="left",data.wavA{1},data.wavB{1});
+                compet_stimuli = fastif(label=="right",data.wavA{1},data.wavB{1});
                 stimuli_fs = data.fsample.wavA;
             end
         case "PKU_preprocessed"
