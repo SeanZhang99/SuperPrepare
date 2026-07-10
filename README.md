@@ -275,9 +275,7 @@ Issues and pull requests are welcome. When proposing changes:
 
 ## References
 
-This pipeline builds on methods from the following work:
-
-- Das, N., Vanthornhout, J., Francart, T., & Bertrand, A. (2019). *Stimulus-aware spatial filtering for single-trial neural response and temporal response function estimation in high-density EEG with applications in auditory research.* bioRxiv, 541318. [doi:10.1101/541318](https://doi.org/10.1101/541318)
+No reference is available yey. Please cite the name and website of this repo if you use this repo in your work.
 
 ---
 
