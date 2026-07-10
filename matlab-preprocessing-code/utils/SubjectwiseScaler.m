@@ -7,6 +7,7 @@ classdef SubjectwiseScaler
         num_channel int32
         running logical
         scaling_factor double
+        chanwise_scaling_factor double
     end
     
     methods
@@ -24,14 +25,15 @@ classdef SubjectwiseScaler
         function obj = update(obj,sample)
             arguments
                 obj SubjectwiseScaler
-                sample (:,:) double {ismatrix}
+                sample double
             end
             %METHOD1 Summary of this method goes here
             %   Detailed explanation goes here
             if obj.running
-                [t,c] = size(sample);
+                t = size(sample,1);
+                c = size(sample,2);
                 assert(c==obj.num_channel);
-                obj.accumulate.power = obj.accumulate.power + sum(sample.^2);
+                obj.accumulate.power = obj.accumulate.power + sum(sample.^2,1);
                 obj.accumulate.count = obj.accumulate.count + t;
             else
                 warning("Object does not operate on running mode. This means the object has collected all samples, and it can only" + ...
@@ -39,11 +41,20 @@ classdef SubjectwiseScaler
             end
         end
 
-        function [obj,scaling_factor] = get_scaling_factor(obj)
+        function [obj,scaling_factor,chanwise_scaling_factor] = get_scaling_factor(obj)
             obj.running = false;
-            trimmed_mean = trimmean(obj.accumulate.power/obj.accumulate.count,20);
-            scaling_factor = sqrt(median(trimmed_mean));
+            if obj.accumulate.count == 0
+                scaling_factor = NaN;
+                chanwise_scaling_factor = NaN;
+            else
+                trimmed_mean = trimmean(obj.accumulate.power./obj.accumulate.count,20);
+                scaling_factor = sqrt(median(trimmed_mean));
+                chanwise_scaling_factor = sqrt(trimmed_mean);
+            end
             obj.scaling_factor = scaling_factor;
+            obj.chanwise_scaling_factor = chanwise_scaling_factor;
+            scaling_factor = py.numpy.array(scaling_factor);
+            chanwise_scaling_factor = py.numpy.array(chanwise_scaling_factor);
         end
 
         function sample = rescale(obj,sample)
