@@ -25,6 +25,8 @@ function [combinedEnvelope, subbandEnvelopes] = calculateEnvelopeERBGammatone(si
     % Apply power-law
     subbandEnvelopes = magnitude.^p;
 
+    subbandEnvelopes(subbandEnvelopes<0) = 0;
+
     % Step 4: Combine envelopes
     combinedEnvelope = sum(subbandEnvelopes, 2);
 end

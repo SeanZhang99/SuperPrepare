@@ -3,6 +3,13 @@ addpath(".\utils\");
 
 config;
 
+% Implement these file(s) with your own dataset:
+% 1. config.mlx: Add your dataset into `all_datasets`, and also
+% `raw_dataset_names` if your dataset provides raw EEG data.
+% 2. get_dataset_info.m: Add your dataset name as a new case, and implement
+% the required fields in the case. See implmentations of other datasets as
+% examples.
+
 dataset_infos = get_dataset_info(dataset_names,raw_path);
 if APPEND_MODE
     if isfile(fullfile(save_path, "meta","metadata.pkl"))
@@ -33,7 +40,8 @@ else
 end
 
 
-for dataset_idx = progress(1:length(dataset_names))
+% for dataset_idx = progress(1:length(dataset_names))
+for dataset_idx = 12
     dataset_name = dataset_names(dataset_idx);
     dataset_info = dataset_infos(dataset_idx);
     dataset_id = dataset_name_id_pair{extractBefore(dataset_name,"_")};
@@ -57,27 +65,31 @@ for dataset_idx = progress(1:length(dataset_names))
 
             stimuli_path = trial_data.stimuli_path;
             compet_stimuli_path = trial_data.compet_stimuli_path;
-
-            env_path = trial_data.env_path;
-            compet_env_path = trial_data.compet_env_path;
-
-            mel_path = trial_data.mel_path;
-            compet_mel_path = trial_data.compet_mel_path;
-
             stimuli = trial_data.stimuli;
             compet_stimuli = trial_data.compet_stimuli;
             stimuli_fs = trial_data.stimuli_fs;
 
+            env_path = trial_data.env_path;
+            compet_env_path = trial_data.compet_env_path;
             env = trial_data.env;
             compet_env = trial_data.compet_env;
 
+            mel_path = trial_data.mel_path;
+            compet_mel_path = trial_data.compet_mel_path;
             mel = trial_data.mel;
             compet_mel = trial_data.compet_mel;
+
+            wav2vec2_fs = trial_data.wav2vec2_fs;
+            wav2vec2 = trial_data.wav2vec2;
+            compet_wav2vec2 = trial_data.compet_wav2vec2;
+            wav2vec2_path = trial_data.wav2vec2_path;
+            compet_wav2vec2_path = trial_data.compet_wav2vec2_path;
+
             %% processing exg
             % exg: nan-> no such trial. number-> correct, go on.
             if isnan(exg)
-                % trial index exceed
-                break
+                % trial index exceed, or invalid trial number.
+                continue
             end
             exg = exg(:,dataset_info.channel_indices);
             if fs ~= common_fs
@@ -118,7 +130,7 @@ for dataset_idx = progress(1:length(dataset_names))
 
             stimuli_is_available = stimuli_path~=""&&~isempty(stimuli);
             if stimuli_is_available
-                if ~isnan(stimuli_fs) && stimuli_fs == 44100
+                if ~isnan(stimuli_fs) && stimuli_fs ~= 16000
                     stimuli = resample(stimuli,16000,stimuli_fs);
                     stimuli_fs = 16000;
                 end
@@ -143,7 +155,7 @@ for dataset_idx = progress(1:length(dataset_names))
                     env = resample(env,common_fs,fs);
                 end
             end
-            if stimuli_is_available
+            if stimuli_is_available && (all(isnan(env),"all") || RECOMPUTE_ENVELOPE)
                 % although envelope is not directly provided, stimuli is
                 % available.
                 tmp = [];
@@ -171,9 +183,9 @@ for dataset_idx = progress(1:length(dataset_names))
                         mel(:,:,end+1) = tmp;
                     end
                 elseif ~isnan(compet_mel)
-                    mel(:,:,end+size(compet_mel,2)) = compet_mel;
+                    mel(:,:,end+size(compet_mel,3)) = compet_mel;
                 end
-            elseif stimuli_is_available
+            elseif stimuli_is_available && (all(isnan(mel),"all") || RECOMPUTE_MEL)
                 % although envelope is not directly provided, stimuli is
                 % available.
                 tmp = [];
@@ -185,6 +197,31 @@ for dataset_idx = progress(1:length(dataset_names))
                         target_fs=py.int(common_fs))));
                 end
                 mel = tmp;
+            end
+
+            %% process other speech embedding features
+            if wav2vec2_path ~= ""
+                wav2vec2 = load_stimuli(dataset_info.audio_path,wav2vec2_path);
+            end
+            if ~isnan(wav2vec2)
+                if compet_wav2vec2_path ~= ""
+                    for path = compet_wav2vec2_path
+                        tmp = load_stimuli(dataset_info.audio_path,path);
+                        assert(all(~isnan(tmp),"all"))
+                        tmp = to_column_vector(tmp);
+                        wav2vec2(:,:,end+1) = tmp;
+                    end
+                elseif ~isnan(compet_wav2vec2)
+                    wav2vec2(:,:,end+size(wav2vec2,3)) = compet_wav2vec2;
+                end
+            elseif stimuli_is_available && all(isnan(wav2vec2),"all")
+                tmp = [];
+                for ii = 1:size(stimuli,2)
+                    continue
+                    %to be implemented: general wav2vec2 feature
+                    %calculation and PCA dimension reduction, resampling to
+                    %match envelope length
+                end
             end
 
             %% detect if stimuli/envelope/mel is zero. remove those silent trailing. also remove unaligned segments
@@ -204,6 +241,9 @@ for dataset_idx = progress(1:length(dataset_names))
                 if ~isnan(stimuli)
                     trim_length = min([trim_length,length(stimuli)/stimuli_fs*common_fs]);
                 end
+                if ~isnan(wav2vec2)
+                    trim_length = min([trim_length,length(wav2vec2)]);
+                end
                 exg = exg(1:trim_length,:);
                 if ~isnan(env)
                     env = env(1:trim_length,:,:);
@@ -213,6 +253,9 @@ for dataset_idx = progress(1:length(dataset_names))
                 end
                 if ~isnan(stimuli)
                     stimuli = stimuli(1:trim_length/common_fs*stimuli_fs,:);
+                end
+                if ~isnan(wav2vec2)
+                    wav2vec2 = wav2vec2(1:trim_length,:,:);
                 end
             end
 
@@ -252,6 +295,11 @@ for dataset_idx = progress(1:length(dataset_names))
         
                     stimuli = stimuli(~stimuli_silent_idx,:);
                 end
+
+                if ~isnan(wav2vec2)
+                    wav2vec2 = wav2vec2(~silent_idx,:,:);
+                end
+
             end
 
             if ~isnan(env)
@@ -263,7 +311,10 @@ for dataset_idx = progress(1:length(dataset_names))
             if ~isnan(stimuli)
                 assert(length(exg)==(length(stimuli)/stimuli_fs*common_fs))
             end
-            %% saving eeg/env/mel to files
+            if ~isnan(wav2vec2)
+                assert(length(wav2vec2)==length(exg));
+            end
+            %% saving eeg/env/mel/wav2vec2 to files
             % update the scaler
             exg_scaler = exg_scaler.update(exg);
             % save exg to file
@@ -281,7 +332,7 @@ for dataset_idx = progress(1:length(dataset_names))
                 py.numpy.save(stimuli_path,stimuli);
             end
 
-          % save env to file
+            % save env to file
             if ~isnan(env)
                 env_path = fullfile(wav_path,"env",sprintf("%s_env.npy",entry));
             end
@@ -307,7 +358,23 @@ for dataset_idx = progress(1:length(dataset_names))
                 py.numpy.save(mel_path,mel);
             end
 
+            % save wav2vec2 to file
+            if ~isnan(wav2vec2)
+                wav2vec2_path = fullfile(wav_path,"wav2vec2",sprintf("%s_wav2vec2.npy",entry));
+            end
+            if wav2vec2_path ~= "" && (STIMULI_OVERRIDE || ~exist(wav2vec2_path,"file"))
+                wav2vec2 = py.numpy.array(wav2vec2);
+                if wav2vec2.ndim == 2
+                    wav2vec2 = py.numpy.expand_dims(wav2vec2,py.int(2));
+                end
+                py.numpy.save(wav2vec2_path,wav2vec2);
+            end
+
             %% prepare metadata
+            add_info = append_additional_info(dataset_name, data_struct, subject_id, trial_id);
+
+            add_info = py.dict(add_info);
+
             entry = py.str(entry);
             metadata{entry} = py.dict;
             metadata{entry}{"dataset_id"} = py.int(dataset_id);
@@ -319,10 +386,18 @@ for dataset_idx = progress(1:length(dataset_names))
             metadata{entry}{"dataset_name"} = py.str(dataset_name);
             metadata{entry}{"channel_infos"} = dataset_info.channel_infos;
             metadata{entry}{"num_speakers"} = py.int(dataset_info.num_speaker);
+            metadata{entry}{"extra_info"} = add_info;
+
 
             if label~=""
                 metadata{entry}{"label"}=py.str(label);
             end
+
+            if trial_data.stimuli_name~=""
+                metadata{entry}{"stimuli_name"} = py.str(trial_data.stimuli_name);
+                metadata{entry}{"compet_stimuli_name"} = py.str(trial_data.compet_stimuli_name);
+            end
+
             if stimuli_path~=""
                 metadata{entry}{"wav"}=py.int(1);
                 metadata{entry}{"wav_fs"}=py.int(stimuli_fs(1));
@@ -341,14 +416,20 @@ for dataset_idx = progress(1:length(dataset_names))
             else
                 metadata{entry}{"mel"}=py.int(0);
             end
+            if wav2vec2_path~=""
+                metadata{entry}{"wav2vec2"} = py.int(1);
+                metadata{entry}{"wav2vec2_fs"} = py.int(wav2vec2_fs);
+            else
+                metadata{entry}{"wav2vec2"} = py.int(0);
+            end
+
             clearvars("trial_id","trial_info",...
                 "exg","label",...
-                "stimuli_path","compet_stimuli_path","silent_idx","skipsampling_silent_idx",...
-                "env_path","compet_env_path",...
-                "mel_path","compet_mel_path",...
-                "stimuli","compet_stimuli","stimuli_fs",...
-                "env","compet_env","env_silent_idx",...
-                "mel","compet_mel","mel_silent_idx",...
+                "silent_idx","skipsampling_silent_idx",...
+                "stimuli_path","compet_stimuli_path","stimuli","compet_stimuli","stimuli_fs",...
+                "env_path","compet_env_path","env","compet_env","env_silent_idx",......
+                "mel_path","compet_mel_path","mel","compet_mel","mel_silent_idx",...
+                "wav2vec2_path", "wav2vec2", "wav2vec2_fs",...
                 "starting_time_step");
         end
         set_sub_entry = sprintf("dataset-%03d-subject-%03d",dataset_id,subject_id);

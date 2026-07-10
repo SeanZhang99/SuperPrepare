@@ -6,6 +6,8 @@ for trial_idx = trial_idxs
     exg = nan;
     stimuli_path = "";
     compet_stimuli_path = "";
+    stimuli_name = "";
+    compet_stimuli_name = "";
     label = "";
     env_path = "";
     compet_env_path = "";
@@ -18,6 +20,11 @@ for trial_idx = trial_idxs
     mel = nan;
     compet_mel = nan;
     stimuli_fs = nan;
+    wav2vec2 = nan;
+    wav2vec2_path = "";
+    compet_wav2vec2 = nan;
+    compet_wav2vec2_path = "";
+    wav2vec2_fs = nan;
     switch dataset_name
         case {"NJU_preprocessed","NJU_raw"}
             if trial_idx <= length(data_struct.data.eeg)
@@ -25,11 +32,18 @@ for trial_idx = trial_idxs
                 [~,label] = get_attention_directions(data_struct.expinfo,trial_idx);
                 stimuli_path = table2array(data_struct.expinfo(trial_idx,2+(data_struct.expinfo.attended_lr(trial_idx)=="right")));
                 compet_stimuli_path = table2array(data_struct.expinfo(trial_idx,2+(data_struct.expinfo.attended_lr(trial_idx)~="right")));
+                
+                stimuli_name = split(stimuli_path,".");
+                stimuli_name = stimuli_name{1};
+                compet_stimuli_name = split(compet_stimuli_path,".");
+                compet_stimuli_name = compet_stimuli_name{1};
             end
         case {"Alices_raw"}
             if trial_idx <= length(data_struct.data.exg)
                 exg = data_struct.data.exg{trial_idx};
-                stimuli_path = sprintf("DownTheRabbitHoleFinal_SoundFile%d.wav",trial_idx);
+                pattern = "DownTheRabbitHoleFinal_SoundFile";
+                stimuli_path = sprintf("%s%d.wav",pattern,trial_idx);
+                stimuli_name = sprintf("%s%d",pattern,trial_idx);
             end
         case {"KUL_raw","KUL_preprocessed"}
             if dataset_name == "KUL_raw"
@@ -52,6 +66,20 @@ for trial_idx = trial_idxs
                 elseif label == "R"
                     label = "right";
                 end
+
+                stimuli_name = split(stimuli_path,[".","_"]);
+                stimuli_name = stimuli_name(1:end-2);
+                if length(stimuli_name) == 3
+                    stimuli_name = stimuli_name(2:end);
+                end
+                stimuli_name = join(stimuli_name,"_");
+                
+                compet_stimuli_name = split(compet_stimuli_path,[".","_"]);
+                compet_stimuli_name = compet_stimuli_name(1:end-2);
+                if length(compet_stimuli_name) == 3
+                    compet_stimuli_name = compet_stimuli_name(2:end);
+                end
+                compet_stimuli_name = join(compet_stimuli_name,"_");
             end
         case {"sparKULee_raw","sparKULee_preprocessed"}
             subject_id_str = sprintf('%03d', subject_id);
@@ -59,13 +87,23 @@ for trial_idx = trial_idxs
             if trial_idx <= length(filelists)
                 exg_py = py.numpy.load(fullfile(filelists(trial_idx).folder,filelists(trial_idx).name));
                 exg = double(exg_py)';
+
+                target_audio = regexp(filelists(trial_idx).name, ...
+                    'desc-preproc-audio-(audiobook_\d+(_\d+)?(?:_(shifted|artefact))?|podcast_\d+)_eeg\.npy' ,...
+                    "tokens");
+                env_path = target_audio{1}{1}+"_-_envelope.npy";
+                mel_path = target_audio{1}{1}+"_-_mel.npy";
+    
+                stimuli_path = target_audio{1}{1}+".wav";
+    
+                wav2vec2_path = target_audio{1}{1}+"_-_wav2vec14pca.npy";
+                wav2vec2_fs = 128;
+
+                stimuli_name = target_audio{1}{1};
+                
             end
-            target_audio = regexp(filelists(trial_idx).name, ...
-                'desc-preproc-audio-(audiobook_\d+(_\d+)?(?:_(shifted|artefact))?|podcast_\d+)_eeg\.npy' ,...
-                "tokens");
-            env_path = target_audio{1}+"_-_envelope.npy";
-            mel_path = target_audio{1}+"_-_mel.npy";
         case {"DTU_preprocessed","DTU_raw"}
+            data_struct.expinfo = data_struct.expinfo(~cellfun(@isempty,data_struct.expinfo.wavfile_female),:);
             if trial_idx <= length(data_struct.data)
                 data = data_struct.data{trial_idx};
                 exg = data.eeg{1};
@@ -73,16 +111,24 @@ for trial_idx = trial_idxs
                 % explicitly say, we are extrating label from attention
                 % direction but not speaker gender.
                 label = fastif(data_struct.expinfo.attend_lr(trial_idx)==1,"left","right");
-                stimuli = fastif(label=="left",data.wavA{1},data.wavB{1});
-                compet_stimuli = fastif(label=="right",data.wavA{1},data.wavB{1});
+                stimuli = data.wavA{1}; % in DTU dataset (preprocessed with our scripts), wavA is always the attended speaker.
+                compet_stimuli = data.wavB{1};
                 stimuli_fs = data.fsample.wavA;
+
+                stimuli_name = fastif(data_struct.expinfo.attend_mf(trial_idx)==1,data_struct.expinfo.wavfile_male,data_struct.expinfo.wavfile_female);
+                compet_stimuli_name = fastif(data_struct.expinfo.attend_mf(trial_idx)==1,data_struct.expinfo.wavfile_female,data_struct.expinfo.wavfile_male);
+
+                stimuli_name = split(stimuli_name(trial_idx),".");
+                stimuli_name = stimuli_name{1};
+                compet_stimuli_name = split(compet_stimuli_name(trial_idx),".");
+                compet_stimuli_name = compet_stimuli_name{1};
             end
-        case "PKU_preprocessed"
+        case {"PKU_preprocessed","PKU-NBD_preprocessed"}
             exg = data_struct.EEG_space.data';
             % The label (1-4) is infered based on the source code given by PKU
             % dataset's authors. The actual directions were told by authors
             % themselves to me.
-            label = ceil(trial_idx/40);
+            label = ceil(trial_idx/10);
             switch label
                 case 1
                     label = 30;
@@ -104,60 +150,103 @@ for trial_idx = trial_idxs
             envelope_index = envelope_index.space_num(trial_idx,:);
             env = all_envelope(:,envelope_index(1));
             compet_env = all_envelope(:,envelope_index(2:end));
-        case "Estart_preprocessed"
-                if mod(subject_id, 2) == 1
-                    exg = data_struct.segs{trial_idx};
-                    env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fM.mat")).env.attended{trial_idx};
-                    compet_env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fM.mat")).env.unattended{trial_idx};
-                else
-                    exg = data_struct.segs{trial_idx};
-                    env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fW.mat")).env.attended{trial_idx};
-                    compet_env = load(fullfile(strrep(dataset_path, 'preproc_ica', 'env'), "env_fW.mat")).env.unattended{trial_idx};
-                end
+        case "ICL_preprocessed"
+            exg = data_struct.eeg;
+            condition = data_struct.condition;
+            stimuli_name = sprintf("%s_part%02d_story",condition,trial_idx);
+            compet_stimuli_name = sprintf("%s_part%02d_distractor",condition,trial_idx);
+            stimuli = data_struct.attended_audio;
+            compet_stimuli = data_struct.competing_audio;
+            stimuli_fs = data_struct.audio_fs;
         case "AHU_preprocessed"
-                exg = data_struct((1:152*128)+(trial_idx-1)*152*128,:);
-                label = fastif(mod(trial_idx,2)==1,"left","right");
+            exg = data_struct((1:152*128)+(trial_idx-1)*152*128,:);
+            label = fastif(mod(trial_idx,2)==1,"left","right");
 
-                audio_path = fullfile(strrep(dataset_path,"eeg_preproc","mixed_audio"),sprintf("%d.wav",trial_idx));
-                [stimuli,stimuli_fs] = audioread(audio_path);
-                
-                if label == "right"
-                    % convert to attended stimuli first.
-                    stimuli = stimuli(:,[2,1]);
-                end
+            audio_path = fullfile(strrep(dataset_path,"eeg_preproc","mixed_audio"),sprintf("%d.wav",trial_idx));
+            [stimuli,stimuli_fs] = audioread(audio_path);
+            
+            if label == "right"
+                % convert to attended stimuli first.
+                stimuli = stimuli(:,[2,1]);
+            end
 
-                exg = exg * 1e4;
+            exg = exg * 1e4;
         case "KUL-AV-GC_preprocessed"
-                exg = data_struct.data{1,trial_idx};
-                label =  string(data_struct.initAttention(1,trial_idx));
-                env = fastif(label=="left",data_struct.stimulus.leftEnvelopes{1,trial_idx},data_struct.stimulus.rightEnvelopes{1,trial_idx});
-                compet_env = fastif(label=="right",data_struct.stimulus.leftEnvelopes{1,trial_idx},data_struct.stimulus.rightEnvelopes{1,trial_idx});
-                % in KUL-AV-GC dataset, subjects are required to change the
-                % direction of attention at the middle point of the trial.
-                % For simplicity, we only remain the first half trial.
-                exg = exg(1:length(exg)/2,:);
-                env = env(1:length(exg)/2,:);
-                compet_env = compet_env(1:length(exg)/2,:);
+            exg = data_struct.data{1,trial_idx};
+            label =  string(data_struct.initAttention(1,trial_idx));
+            env = data_struct.stimulus.attendedEnvelopes{1,trial_idx};
+            compet_env = data_struct.stimulus.unattendedEnvelopes{1,trial_idx};
+
+            % Regarding the attention switch in KUL-AV-GC:
+            % label: the label presents the initial attention.
+            % stimuli: the stimuli also switched sides (from left to
+            % right or vice versa) when an attention switch occurred.
+            % It is unnecessary to swap the stimuli and compet stimuli
+            % nor swap their names.
+
+            stimuli_name = data_struct.randomization{1,trial_idx}.(label);
+            compet_stimuli_name = data_struct.randomization{1,trial_idx}.(fastif(label=="left","right","left"));
+
+            stimuli_name = split(stimuli_name,"_");
+            stimuli_name = string(join(stimuli_name(1:end-1),""));
+            compet_stimuli_name = split(compet_stimuli_name,"_");
+            compet_stimuli_name = string(join(compet_stimuli_name(1:end-1),""));
+
+            exg = exg(1:length(exg),:);
+            env = env(1:length(exg),:);
+            compet_env = compet_env(1:length(exg),:);
+
         case "NUS_preprocessed"
-                exg = data_struct.data{1,trial_idx};
-                switch trial_idx
-                    case {1, 2, 3, 4}
-                        if data_struct.labels(trial_idx, 1) == 0,label = '-90';else,label = '90';end
-                    case {5, 6, 7, 8}
-                        if data_struct.labels(trial_idx, 1) == 0,label = '-60';else,label = '60';end
-                    case {9,10,11,12}
-                        if data_struct.labels(trial_idx, 1) == 0,label = '-45';else,label = '45';end
-                    case {13,14,15,16}
-                        if data_struct.labels(trial_idx, 1) == 0,label = '-30';else,label = '30';end
-                    case {17,18,19,20}
-                        if data_struct.labels(trial_idx, 1) == 0,label = '-5';else,label = '5';end
+            exg = data_struct.data{1,trial_idx};
+            switch trial_idx
+                case {1, 2, 3, 4}
+                    if data_struct.labels(trial_idx, 1) == 0,label = '-90';else,label = '90';end
+                case {5, 6, 7, 8}
+                    if data_struct.labels(trial_idx, 1) == 0,label = '-60';else,label = '60';end
+                case {9,10,11,12}
+                    if data_struct.labels(trial_idx, 1) == 0,label = '-45';else,label = '45';end
+                case {13,14,15,16}
+                    if data_struct.labels(trial_idx, 1) == 0,label = '-30';else,label = '30';end
+                case {17,18,19,20}
+                    if data_struct.labels(trial_idx, 1) == 0,label = '-5';else,label = '5';end
+            end
+        case "CocktailParty_preprocessed"
+            if ~isempty(data_struct.preprocessed_data{trial_idx})
+                exg = data_struct.preprocessed_data{trial_idx}.eeg;
+
+                stimuli = data_struct.preprocessed_data{trial_idx}.audio;
+                stimuli_fs = data_struct.preprocessed_data{trial_idx}.audio_fs;
+                if subject_id <= 17
+                    label = "left";
+                    stimuli_name = sprintf("TwentyThousandMiles_part%02d",trial_idx);
+                    compet_stimuli_name = sprintf("JourneyTo_part%02d",trial_idx);
+                else
+                    label = "right";
+                    stimuli = stimuli(:,[2,1]);
+                    stimuli_name = sprintf("JourneyTo_part%02d",trial_idx);
+                    compet_stimuli_name = sprintf("TwentyThousandMiles_part%02d",trial_idx);
                 end
+            end
+        case {"USTC_preprocessed"}
+            exg = data_struct.data(1,trial_idx+1).EEG;
+            exg = squeeze(exg);
+
+            stimuli_path = data_struct.data(1,trial_idx+1).audio_attended;
+            compet_stimuli_path = data_struct.data(1,trial_idx+1).audio_unattended;
+
+            stimuli_name = data_struct.data(1,trial_idx+1).audio_attended;
+            compet_stimuli_name = data_struct.data(1,trial_idx+1).audio_unattended;
+
+            label = data_struct.data(1,trial_idx+1).label;
+
         otherwise
             error("Unimplemented dataset %s",dataset_name)
     end
     trial_data(end).exg = exg;
     trial_data(end).stimuli_path = stimuli_path;
     trial_data(end).compet_stimuli_path = string(compet_stimuli_path);
+    trial_data(end).stimuli_name = string(stimuli_name);
+    trial_data(end).compet_stimuli_name = string(compet_stimuli_name);
     trial_data(end).label = string(label);
     trial_data(end).env_path = env_path;
     trial_data(end).compet_env_path = string(compet_env_path);
@@ -170,12 +259,20 @@ for trial_idx = trial_idxs
     trial_data(end).mel = mel;
     trial_data(end).compet_mel = compet_mel;
     trial_data(end).stimuli_fs = stimuli_fs;
+    trial_data(end).wav2vec2 = wav2vec2;
+    trial_data(end).wav2vec2_path = wav2vec2_path;
+    trial_data(end).compet_wav2vec2 = compet_wav2vec2;
+    trial_data(end).compet_wav2vec2_path = compet_wav2vec2_path;
+    trial_data(end).wav2vec2_fs = wav2vec2_fs;
     trial_data(end+1) = struct("exg",[],...
-        "stimuli_path",[],"compet_stimuli_path",[],"stimuli",[],"compet_stimuli",[],...
+        "stimuli_path",[],"compet_stimuli_path",[],...
+        "stimuli_name",[],"compet_stimuli_name",[],...
+        "stimuli",[],"compet_stimuli",[],...
         "stimuli_fs",[],...
         "label",[],...
         "env_path",[],"compet_env_path",[],"env",[],"compet_env",[],...
-        "mel_path",[],"compet_mel_path",[],"mel",[],"compet_mel",[]);
+        "mel_path",[],"compet_mel_path",[],"mel",[],"compet_mel",[],...
+        "wav2vec2_path",[],"compet_wav2vec2_path",[],"wav2vec2",[],"compet_wav2vec2",[],"wav2vec2_fs",[]);
 end
 end
 

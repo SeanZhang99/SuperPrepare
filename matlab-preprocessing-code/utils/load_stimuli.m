@@ -10,7 +10,9 @@ switch extension
     case {".npy"}
         stimuli = double(py.numpy.load(fullfile(path,stimuli_path)));
         fs = NaN;
-    otherwise
+    case {".wav"}
         [stimuli,fs] = audioread(fullfile(path,stimuli_path));
+    otherwise
+        error("Unimplemented")
 end
 
