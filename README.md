@@ -3,6 +3,8 @@
 > A multi-dataset EEG preprocessing pipeline for Auditory Attention Detection (AAD) research.  
 > Unifies heterogeneous EEG datasets into a standardized, machine-learning-ready format.
 
+> **Documentation:** [Getting Started](docs/getting-started.md) · [Configuration](docs/configuration.md) · [Pipeline](docs/pipeline.md) · [Datasets](docs/datasets.md) · [Output Format](docs/output-format.md) · [API Reference](docs/api-reference.md)
+
 ---
 
 ## Table of Contents
@@ -16,6 +18,7 @@
 - [Quick Start](#quick-start)
 - [Adding a New Dataset](#adding-a-new-dataset)
 - [Repository Structure](#repository-structure)
+- [Documentation](#documentation)
 - [Contributing](#contributing)
 - [References](#references)
 - [License](#license)
@@ -262,6 +265,19 @@ SuperPrepare/
 ```
 
 ---
+
+## Documentation
+
+Detailed documentation is available in the [`docs/`](docs/) directory:
+
+| Document | Content |
+|----------|---------|
+| [Getting Started](docs/getting-started.md) | Installation, dependencies, troubleshooting |
+| [Configuration](docs/configuration.md) | `config.mlx` reference — all parameters explained |
+| [Pipeline Deep Dive](docs/pipeline.md) | Stage-by-stage walkthrough of the processing pipeline |
+| [Datasets](docs/datasets.md) | Per-dataset details and how to add a new one |
+| [Output Format](docs/output-format.md) | `.npy` file structure, metadata, and scaling factors |
+| [API Reference](docs/api-reference.md) | All functions, classes, and their signatures |
 
 ## Contributing
 
